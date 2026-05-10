@@ -29,46 +29,66 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     _fetchMataKuliah();
   }
 
-  // Fungsi ambil master data MK agar dosen tinggal pilih
   Future<void> _fetchMataKuliah() async {
-  try {
-    final data = await _supabase.from('mata_kuliah').select();
-    if (data.isNotEmpty) {
-      setState(() {
-        listMk = List<Map<String, dynamic>>.from(data);
-      });
+    try {
+      final data = await _supabase.from('mata_kuliah').select();
+      if (data.isNotEmpty) {
+        setState(() {
+          listMk = List<Map<String, dynamic>>.from(data);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal load MK: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
-  } catch (e) {
-    // Tambahkan snackbar biar kamu tau errornya apa pas ngetes di HP/Emulator
+  }
+
+  // --- FITUR NOMOR 4: FUNGSI VALIDASI INPUT ---
+  bool _isInputValid() {
+    if (selectedMkId == null) {
+      _showWarning("Silakan pilih Mata Kuliah terlebih dahulu!");
+      return false;
+    }
+    if (tahunController.text.trim().isEmpty) {
+      _showWarning("Tahun Ajaran tidak boleh kosong!");
+      return false;
+    }
+    // Validasi format tahun (Harus ada garis miring, misal 2025/2026)
+    if (!tahunController.text.contains('/')) {
+      _showWarning("Format Tahun Ajaran salah! Gunakan format: 2025/2026");
+      return false;
+    }
+    return true;
+  }
+
+  void _showWarning(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal load MK: $e"))
+      SnackBar(content: Text(message), backgroundColor: Colors.orange),
     );
   }
-}
 
   Future<void> _handleSimpanRps() async {
-    if (selectedMkId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Pilih Mata Kuliah dulu!")),
-      );
-      return;
-    }
+    // Jalankan validasi sebelum proses ke database
+    if (!_isInputValid()) return;
 
     setState(() => isLoading = true);
 
     try {
       final userId = _supabase.auth.currentUser!.id;
 
-      // 1. Simpan data RPS dan tangkap hasilnya (result)
+      // 1. Simpan data RPS
       final result = await _rpsService.createRps(
         mkId: selectedMkId!,
         dosenId: userId,
-        tahunAjaran: tahunController.text,
+        tahunAjaran: tahunController.text.trim(),
         semester: selectedSemester,
       );
 
       if (mounted) {
-        // 2. Panggil MappingPage dan kirim data RPS yang baru dibuat
+        // 2. Lanjut ke MappingPage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -77,15 +97,20 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Draft Berhasil! Lanjut ke Mapping OBE.")),
+          const SnackBar(
+            content: Text("Draft Berhasil! Lanjut ke Mapping OBE."),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -93,13 +118,16 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Buat RPS Baru")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Dropdown Mata Kuliah (Mengambil dari Tabel mata_kuliah)
+            const Text("Pilih Mata Kuliah", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              hint: const Text("Pilih Mata Kuliah"),
+              isExpanded: true,
+              hint: const Text("Klik untuk memilih..."),
               value: selectedMkId,
               items: listMk.map((mk) {
                 return DropdownMenuItem<String>(
@@ -112,15 +140,19 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
             ),
             const SizedBox(height: 20),
 
+            const Text("Tahun Ajaran", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             TextField(
               controller: tahunController,
               decoration: const InputDecoration(
-                labelText: "Tahun Ajaran",
+                hintText: "Contoh: 2025/2026",
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 20),
 
+            const Text("Semester", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: selectedSemester,
               items: ["Ganjil", "Genap"].map((s) {
@@ -128,20 +160,28 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
               }).toList(),
               onChanged: (val) => setState(() => selectedSemester = val!),
               decoration: const InputDecoration(
-                labelText: "Semester",
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
 
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                ),
                 onPressed: isLoading ? null : _handleSimpanRps,
                 child: isLoading 
-                  ? const CircularProgressIndicator() 
-                  : const Text("Simpan Draft & Lanjut Mapping"),
+                  ? const SizedBox(
+                      height: 20, 
+                      width: 20, 
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                    ) 
+                  : const Text("Simpan Draft & Lanjut Mapping", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],

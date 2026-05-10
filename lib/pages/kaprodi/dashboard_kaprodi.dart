@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rps_obe_app/pages/kaprodi/manage_cpl_page.dart';
+import 'package:rps_obe_app/pages/kaprodi/set_standar_mapping_page.dart'; // IMPORT HALAMAN BARU
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 import '../shared/detail_rps_page.dart';
@@ -21,19 +22,17 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
   @override
   void initState() {
     super.initState();
-    _reviewFuture = _fetchAndSortRps(); // Gunakan fungsi sort baru
+    _reviewFuture = _fetchAndSortRps();
     _refreshData();
   }
 
-  // --- FUNGSI UNTUK AMBIL DATA & URUTKAN (PRIORITAS REVIEW) ---
   Future<List<Map<String, dynamic>>> _fetchAndSortRps() async {
     final list = await rpsService.getRpsForKaprodi();
-    // Urutkan: waiting_approval paling atas, lalu approved di bawah
     list.sort((a, b) {
       final sA = a['status']?.toString() ?? '';
       final sB = b['status']?.toString() ?? '';
       if (sA.contains('waiting') && !sB.contains('waiting')) return -1;
-      if (!sA.contains('waiting') && sB.contains('waiting')) return 1;
+      if (!sA.contains('waiting') && b['status'].contains('waiting')) return 1;
       return 0;
     });
     return list;
@@ -53,7 +52,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     }
   }
 
-  // --- HELPER WARNA & LABEL STATUS ---
   Color _getStatusColor(String status) {
     if (status.contains('waiting')) return Colors.orange.shade800;
     if (status == 'approved') return Colors.green.shade700;
@@ -115,13 +113,25 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData());
               },
             ),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.people, color: Colors.orange),
               title: const Text("Data Dosen"),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()));
+              },
+            ),
+            const Divider(),
+            // --- MENU BARU: SET STANDAR MAPPING MK ---
+            ListTile(
+              leading: const Icon(Icons.account_tree, color: Colors.purple),
+              title: const Text("Set Standar CPL MK"),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SetStandarMappingPage()),
+                );
               },
             ),
           ],
@@ -141,7 +151,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
             ),
           ),
           const Divider(height: 1),
-          
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _reviewFuture,
@@ -185,7 +194,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                           children: [
                             Text("Dosen: ${rps['users']?['nama'] ?? '-'}"),
                             const SizedBox(height: 5),
-                            // --- BADGE STATUS ---
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(

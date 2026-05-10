@@ -18,8 +18,35 @@ class _ManageMkPageState extends State<ManageMkPage> {
   final _semesterController = TextEditingController();
 
   // Fungsi Refresh Data
-  void _refresh() {
-    setState(() {});
+  void _refresh() => setState(() {});
+
+  // --- LOGIKA VALIDASI INPUT (FITUR NOMOR 4) ---
+  bool _isValid() {
+    if (_kodeController.text.trim().isEmpty || _namaController.text.trim().isEmpty) {
+      _showWarning("Kode dan Nama MK wajib diisi!");
+      return false;
+    }
+    
+    int? sks = int.tryParse(_sksController.text);
+    int? semester = int.tryParse(_semesterController.text);
+    
+    if (sks == null || sks <= 0 || sks > 8) {
+      _showWarning("SKS harus berupa angka antara 1 - 8!");
+      return false;
+    }
+    
+    if (semester == null || semester <= 0 || semester > 14) {
+      _showWarning("Semester harus berupa angka logis (1 - 14)!");
+      return false;
+    }
+    
+    return true;
+  }
+
+  void _showWarning(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.orange, behavior: SnackBarBehavior.floating)
+    );
   }
 
   // --- FUNGSI TAMBAH DATA ---
@@ -31,13 +58,13 @@ class _ManageMkPageState extends State<ManageMkPage> {
         title: "Tambah Mata Kuliah",
         buttonText: "Simpan",
         onPressed: () async {
-          if (_namaController.text.isEmpty) return;
+          if (!_isValid()) return;
           try {
             await rpsService.addMataKuliah(
-              _kodeController.text,
-              _namaController.text,
-              int.tryParse(_sksController.text) ?? 0,
-              int.tryParse(_semesterController.text) ?? 0,
+              _kodeController.text.trim(),
+              _namaController.text.trim(),
+              int.parse(_sksController.text),
+              int.parse(_semesterController.text),
             );
             _handleSuccess("Berhasil menambah mata kuliah");
           } catch (e) {
@@ -61,14 +88,14 @@ class _ManageMkPageState extends State<ManageMkPage> {
         title: "Edit Mata Kuliah",
         buttonText: "Update",
         onPressed: () async {
-          if (_namaController.text.isEmpty) return;
+          if (!_isValid()) return;
           try {
             await rpsService.updateMataKuliah(
               mk['id'],
-              _kodeController.text,
-              _namaController.text,
-              int.tryParse(_sksController.text) ?? 0,
-              int.tryParse(_semesterController.text) ?? 0,
+              _kodeController.text.trim(),
+              _namaController.text.trim(),
+              int.parse(_sksController.text),
+              int.parse(_semesterController.text),
             );
             _handleSuccess("Berhasil memperbarui mata kuliah");
           } catch (e) {
@@ -79,16 +106,25 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- WIDGET DIALOG REUSABLE (Untuk Tambah & Edit) ---
+  // --- WIDGET DIALOG REUSABLE ---
   Widget _buildMkDialog({required String title, required String buttonText, required VoidCallback onPressed}) {
     return AlertDialog(
-      title: Text(title),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _kodeController, decoration: const InputDecoration(labelText: "Kode MK")),
-            TextField(controller: _namaController, decoration: const InputDecoration(labelText: "Nama MK")),
+            TextField(
+              controller: _kodeController, 
+              decoration: const InputDecoration(labelText: "Kode MK", hintText: "Contoh: MK001")
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _namaController, 
+              decoration: const InputDecoration(labelText: "Nama Mata Kuliah")
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -98,7 +134,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
                     keyboardType: TextInputType.number
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 15),
                 Expanded(
                   child: TextField(
                     controller: _semesterController, 
@@ -113,7 +149,11 @@ class _ManageMkPageState extends State<ManageMkPage> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-        ElevatedButton(onPressed: onPressed, child: Text(buttonText)),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          onPressed: onPressed, 
+          child: Text(buttonText)
+        ),
       ],
     );
   }
@@ -128,7 +168,9 @@ class _ManageMkPageState extends State<ManageMkPage> {
   void _handleSuccess(String message) {
     if (mounted) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.green)
+      );
       _refresh();
     }
   }
@@ -148,9 +190,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: rpsService.getAllMataKuliah(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
           
           final listMk = snapshot.data ?? [];
@@ -161,28 +201,21 @@ class _ManageMkPageState extends State<ManageMkPage> {
             itemCount: listMk.length,
             itemBuilder: (context, index) {
               final mk = listMk[index];
-              final String namaMk = mk['nama_mk']?.toString() ?? 'Tanpa Nama';
-              final String kodeMk = mk['kode_mk']?.toString() ?? '- No Code -';
-              final String sksMk = mk['sks']?.toString() ?? '0';
-              final String semMk = mk['semester']?.toString() ?? '0';
-
               return Card(
                 elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 4),
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors.blue.shade100,
-                    child: Text(sksMk, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: Text(mk['sks']?.toString() ?? '0', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
                   ),
-                  title: Text(namaMk, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Kode: $kodeMk | Semester: $semMk"),
+                  title: Text(mk['nama_mk'] ?? 'Tanpa Nama', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text("Kode: ${mk['kode_mk'] ?? '-'} | Semester: ${mk['semester'] ?? '-'}"),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _showEditDialog(mk),
-                      ),
+                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditDialog(mk)),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () async {
@@ -190,14 +223,13 @@ class _ManageMkPageState extends State<ManageMkPage> {
                             context: context,
                             builder: (context) => AlertDialog(
                               title: const Text("Hapus MK?"),
-                              content: const Text("Data tidak bisa dihapus jika sudah digunakan di RPS."),
+                              content: const Text("Data MK tidak bisa dihapus jika sedang digunakan di RPS aktif."),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
-                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Hapus")),
+                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Hapus", style: TextStyle(color: Colors.red))),
                               ],
                             ),
                           );
-
                           if (confirm == true) {
                             try {
                               await rpsService.deleteMataKuliah(mk['id']);
@@ -217,8 +249,9 @@ class _ManageMkPageState extends State<ManageMkPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
-        child: const Icon(Icons.add),
+        onPressed: _showAddDialog, 
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

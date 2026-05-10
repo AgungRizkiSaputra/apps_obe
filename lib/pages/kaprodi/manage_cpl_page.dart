@@ -23,18 +23,41 @@ class _ManageCplPageState extends State<ManageCplPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _kodeController, decoration: const InputDecoration(labelText: "Kode CPL (Contoh: CPL-01)")),
-            TextField(controller: _deskripsiController, decoration: const InputDecoration(labelText: "Deskripsi"), maxLines: 3),
+            TextField(
+              controller: _kodeController, 
+              decoration: const InputDecoration(labelText: "Kode CPL (Contoh: CPL-01)")
+            ),
+            TextField(
+              controller: _deskripsiController, 
+              decoration: const InputDecoration(labelText: "Deskripsi"), 
+              maxLines: 3
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
             onPressed: () async {
-              await rpsService.addCpl(_kodeController.text, _deskripsiController.text);
-              _kodeController.clear();
-              _deskripsiController.clear();
-              if (mounted) { Navigator.pop(context); _refresh(); }
+              // --- VALIDASI INPUT ---
+              if (_kodeController.text.trim().isEmpty || _deskripsiController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Kode dan Deskripsi CPL tidak boleh kosong!"), backgroundColor: Colors.red),
+                );
+                return;
+              }
+
+              try {
+                await rpsService.addCpl(_kodeController.text.trim(), _deskripsiController.text.trim());
+                _kodeController.clear();
+                _deskripsiController.clear();
+                if (mounted) { 
+                  Navigator.pop(context); 
+                  _refresh(); 
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Berhasil menambah CPL")));
+                }
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red));
+              }
             },
             child: const Text("Simpan"),
           ),
@@ -52,6 +75,8 @@ class _ManageCplPageState extends State<ManageCplPage> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final listCpl = snapshot.data!;
+          if (listCpl.isEmpty) return const Center(child: Text("Belum ada data CPL."));
+
           return ListView.builder(
             padding: const EdgeInsets.all(10),
             itemCount: listCpl.length,
@@ -64,22 +89,23 @@ class _ManageCplPageState extends State<ManageCplPage> {
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () async {
-                      try {
-                        await rpsService.deleteCpl(cpl['id']);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Berhasil menghapus CPL")),
-                          );
-                          _refresh();
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Gagal hapus CPL: $e"), 
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Hapus CPL?"),
+                          content: const Text("Pastikan CPL ini tidak sedang digunakan dalam mapping RPS."),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Hapus", style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        try {
+                          await rpsService.deleteCpl(cpl['id']);
+                          if (mounted) { _refresh(); }
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red));
                         }
                       }
                     },

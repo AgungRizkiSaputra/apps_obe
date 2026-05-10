@@ -8,7 +8,7 @@ class RpsService {
     try {
       final response = await supabase
           .from('rps')
-          .select('*, mata_kuliah(nama_mk, sks)') 
+          .select('*, mata_kuliah(nama_mk, kode_mk, sks)') 
           .eq('dosen_id', dosenId)
           .order('created_at', ascending: false);
       
@@ -298,6 +298,68 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       throw 'Gagal mengambil data dosen: $e';
+    }
+  }
+
+  // 15. Simpan standar mapping CPL untuk satu Mata Kuliah
+  Future<void> saveStandarMapping(String mkId, List<String> selectedCplIds) async {
+    try {
+      // Hapus standar lama dulu biar nggak numpuk
+      await supabase.from('standar_mapping_mk').delete().eq('mk_id', mkId);
+      
+      if (selectedCplIds.isNotEmpty) {
+        final data = selectedCplIds.map((cplId) => {
+          'mk_id': mkId,
+          'cpl_id': cplId,
+        }).toList();
+        await supabase.from('standar_mapping_mk').insert(data);
+      }
+    } catch (e) {
+      throw 'Gagal simpan standar mapping: $e';
+    }
+  }
+
+  // 16. Ambil daftar CPL yang sudah jadi standar untuk suatu MK
+  Future<List<String>> getStandarCplIds(String mkId) async {
+    try {
+      final response = await supabase
+          .from('standar_mapping_mk')
+          .select('cpl_id')
+          .eq('mk_id', mkId);
+
+      // Kita ganti logika pengecekannya biar VS Code nggak komplain "Dead Code"
+      final List data = response as List? ?? [];
+      
+      return data.map((item) => item['cpl_id'].toString()).toList();
+    } catch (e) {
+      // Ganti debugPrint jadi print biasa
+      print("Error getStandarCplIds: $e");
+      return []; // Jika error, kembalikan list kosong
+    }
+  }
+
+  // 17. Fungsi untuk mengambil detail mapping (CPMK & CPL) khusus untuk Cetak PDF
+  Future<List<Map<String, dynamic>>> getMappingFullForPdf(String rpsId) async {
+    try {
+      // Kita ambil data dari tabel cpmk yang rps_id-nya cocok
+      // Kita juga join ke tabel mapping dan cpl biar dapet KODE CPL-nya
+      final response = await supabase
+          .from('cpmk')
+          .select('''
+            id,
+            deskripsi,
+            mapping_cpl_cpmk (
+              cpl (
+                kode_cpl
+              )
+            )
+          ''')
+          .eq('rps_id', rpsId);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print("Error ambil data PDF: $e");
+      return [];
     }
   }
 }
