@@ -1,21 +1,23 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:typed_data';
+import 'dart:io';
+
 
 class RpsService {
   final supabase = Supabase.instance.client;
 
   // 1. Ambil daftar RPS untuk Dosen
   Future<List<Map<String, dynamic>>> getRpsByDosen(String dosenId) async {
-    try {
-      final response = await supabase
-          .from('rps')
-          .select('*, mata_kuliah(nama_mk, kode_mk, sks)') 
-          .eq('dosen_id', dosenId)
-          .order('created_at', ascending: false);
-      
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      throw 'Gagal mengambil data RPS: $e';
-    }
+    final response = await supabase
+        .from('rps')
+        .select('''
+          *,
+          mata_kuliah (nama_mk, kode_mk, sks),
+          users (nama, signature_url) 
+        ''') // <--- PASTIKAN ADA signature_url DI SINI
+        .eq('dosen_id', dosenId)
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
   }
 
   // 2. Ambil daftar RPS untuk Kaprodi 
@@ -267,25 +269,58 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   }
 
   // 13. Fungsi untuk mengambil statistik dashboard Kaprodi
-  Future<Map<String, int>> getKaprodiStats() async {
-    try {
-      final rpsPending = await supabase
-          .from('rps')
-          .select()
-          .or('status.eq.waiting_approval,status.eq.waiting_approval_revision');
+  Future<Map<String, dynamic>> getKaprodiStats() async {
+  try {
+    // Ambil data status RPS
+    final rpsResponse = await supabase
+        .from('rps')
+        .select('status');
 
-      final totalMk = await supabase.from('mata_kuliah').select();
-      final totalCpl = await supabase.from('cpl').select();
+    // Ambil semua data MK
+    final mkResponse = await supabase
+        .from('mata_kuliah')
+        .select();
 
-      return {
-        'pending': rpsPending.length,
-        'mk': totalMk.length,
-        'cpl': totalCpl.length,
-      };
-    } catch (e) {
-      return {'pending': 0, 'mk': 0, 'cpl': 0};
-    }
+    // Ambil semua data CPL
+    final cplResponse = await supabase
+        .from('cpl')
+        .select();
+
+    final List allRps = List.from(rpsResponse);
+    final List allMk = List.from(mkResponse);
+    final List allCpl = List.from(cplResponse);
+
+    return {
+      'pending': allRps
+          .where((r) => r['status'].toString().contains('waiting'))
+          .length,
+
+      'approved': allRps
+          .where((r) => r['status'] == 'approved')
+          .length,
+
+      'revisi': allRps
+          .where((r) =>
+              r['status'] == 'revisi' ||
+              r['status'] == 'revisi_selesai')
+          .length,
+
+      'mk': allMk.length,
+
+      'cpl': allCpl.length,
+    };
+  } catch (e) {
+    print("Error Stats: $e");
+
+    return {
+      'pending': 0,
+      'approved': 0,
+      'revisi': 0,
+      'mk': 0,
+      'cpl': 0,
+    };
   }
+}
 
   // 14. Ambil Data Semua Dosen
   Future<List<Map<String, dynamic>>> getAllDosen() async {
@@ -360,6 +395,82 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     } catch (e) {
       print("Error ambil data PDF: $e");
       return [];
+    }
+  }
+
+  // 18. Fungsi untuk upload tanda tangan dan update profil user
+  Future<String> uploadSignature(String userId, Uint8List imageBytes) async {
+    try {
+      final fileName = 'sig_$userId.png';
+      
+      // Gunakan .upload (bukan uploadBytes) karena versi terbaru otomatis handle bytes
+      await supabase.storage.from('signatures').uploadBinary(
+            fileName,
+            imageBytes,
+            fileOptions: const FileOptions(
+              upsert: true, 
+              contentType: 'image/png'
+            ),
+          );
+
+      final imageUrl = supabase.storage.from('signatures').getPublicUrl(fileName);
+
+      await supabase.from('users').update({'signature_url': imageUrl}).eq('id', userId);
+
+      return imageUrl;
+    } catch (e) {
+      throw "Gagal simpan tanda tangan: $e";
+    }
+  }
+
+  // 19. Fungsi untuk update profil (Nama)
+  Future<void> updateProfile(String userId, String newName) async {
+    try {
+      // 1. Update metadata di Auth (supaya kalau login ulang datanya baru)
+      await supabase.auth.updateUser(
+        UserAttributes(data: {'nama': newName}),
+      );
+
+      // 2. Update di tabel users kamu
+      await supabase.from('users').update({'nama': newName}).eq('id', userId);
+    } catch (e) {
+      throw "Gagal update profil: $e";
+    }
+  }
+
+  // 20. Fungsi untuk ganti password
+  Future<void> changePassword(String newPassword) async {
+    try {
+      await supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } catch (e) {
+      throw "Gagal ganti password: $e";
+    }
+  }
+
+  // 21. Fungsi untuk upload foto profil dan update metadata user
+  Future<String> uploadAvatar(String userId, Uint8List bytes, String extension) async {
+    try {
+      final fileName = 'avatar_$userId.$extension';
+      
+      // Gunakan uploadBinary untuk data mentah (bytes) agar jalan di WEB
+      await supabase.storage.from('avatars').uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: FileOptions(upsert: true, contentType: 'image/$extension'),
+          );
+
+      final imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+      // Update metadata auth
+      await supabase.auth.updateUser(
+        UserAttributes(data: {'avatar_url': imageUrl}),
+      );
+
+      return imageUrl;
+    } catch (e) {
+      throw "Gagal upload foto profil: $e";
     }
   }
 }

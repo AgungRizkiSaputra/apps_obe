@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:rps_obe_app/pages/kaprodi/manage_cpl_page.dart';
-import 'package:rps_obe_app/pages/kaprodi/set_standar_mapping_page.dart'; // IMPORT HALAMAN BARU
+import 'package:rps_obe_app/pages/kaprodi/set_standar_mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 import '../shared/detail_rps_page.dart';
 import 'manage_mk_page.dart';
 import 'manage_dosen_page.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class DashboardKaprodi extends StatefulWidget {
   const DashboardKaprodi({super.key});
@@ -17,7 +18,7 @@ class DashboardKaprodi extends StatefulWidget {
 class _DashboardKaprodiState extends State<DashboardKaprodi> {
   final rpsService = RpsService();
   late Future<List<Map<String, dynamic>>> _reviewFuture;
-  Map<String, dynamic> _stats = {'pending': 0, 'mk': 0, 'cpl': 0};
+  Map<String, dynamic> _stats = {'pending': 0, 'approved': 0, 'revisi': 0, 'mk': 0, 'cpl': 0};
 
   @override
   void initState() {
@@ -69,8 +70,11 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text("Review RPS (Kaprodi)"),
+        backgroundColor: Colors.blue.shade800,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -81,90 +85,57 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           )
         ],
       ),
-      drawer: Drawer(
+      drawer: _buildDrawer(context),
+      // MENGGUNAKAN RefreshIndicator agar bisa tarik kebawah untuk update data
+      body: RefreshIndicator(
+        onRefresh: () async => _refreshData(),
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(bottom: 30),
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+            // 1. BAGIAN GRAFIK
+            _buildChartSection(),
+
+            // 2. BAGIAN STAT CARD
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
                 children: [
-                  Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
-                  SizedBox(height: 10),
-                  Text("Menu Kaprodi", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  _buildStatCard("Perlu Review", _stats['pending'].toString(), Colors.blue),
+                  _buildStatCard("Total MK", _stats['mk'].toString(), Colors.green),
+                  _buildStatCard("Total CPL", _stats['cpl'].toString(), Colors.orange),
                 ],
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.book, color: Colors.blue),
-              title: const Text("Data Mata Kuliah"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData());
-              },
+
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Text("Daftar RPS Masuk", 
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
-            ListTile(
-              leading: const Icon(Icons.assignment, color: Colors.green),
-              title: const Text("Data CPL Prodi"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData());
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people, color: Colors.orange),
-              title: const Text("Data Dosen"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()));
-              },
-            ),
-            const Divider(),
-            // --- MENU BARU: SET STANDAR MAPPING MK ---
-            ListTile(
-              leading: const Icon(Icons.account_tree, color: Colors.purple),
-              title: const Text("Set Standar CPL MK"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SetStandarMappingPage()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey.shade50,
-            child: Row(
-              children: [
-                _buildStatCard("Perlu Review", _stats['pending'].toString(), Colors.blue),
-                _buildStatCard("Total MK", _stats['mk'].toString(), Colors.green),
-                _buildStatCard("Total CPL", _stats['cpl'].toString(), Colors.orange),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
+
+            // 3. BAGIAN DAFTAR RPS
+            FutureBuilder<List<Map<String, dynamic>>>(
               future: _reviewFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(),
+                  ));
                 }
-                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-
+                
                 final listReview = snapshot.data ?? [];
-                if (listReview.isEmpty) return const Center(child: Text("Belum ada RPS yang masuk."));
+                if (listReview.isEmpty) {
+                  return const Center(child: Padding(
+                    padding: EdgeInsets.all(30.0),
+                    child: Text("Belum ada RPS yang masuk."),
+                  ));
+                }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(10),
+                  shrinkWrap: true, // PENTING: Agar list tahu tingginya di dalam ListView
+                  physics: const NeverScrollableScrollPhysics(), // PENTING: Agar tidak bentrok scroll
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
                   itemCount: listReview.length,
                   itemBuilder: (context, index) {
                     final rps = listReview[index];
@@ -173,7 +144,8 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
 
                     return Card(
                       elevation: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
                         onTap: () {
                           Navigator.push(
@@ -182,24 +154,23 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                           ).then((_) => _refreshData());
                         },
                         leading: CircleAvatar(
-                          backgroundColor: statusColor.withOpacity(0.2),
+                          backgroundColor: statusColor.withOpacity(0.1),
                           child: Icon(Icons.description, color: statusColor),
                         ),
                         title: Text(
                           rps['mata_kuliah']?['nama_mk'] ?? 'Mata Kuliah', 
-                          style: const TextStyle(fontWeight: FontWeight.bold)
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Dosen: ${rps['users']?['nama'] ?? '-'}"),
+                            Text("Dosen: ${rps['users']?['nama'] ?? '-'}", style: const TextStyle(fontSize: 12)),
                             const SizedBox(height: 5),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: statusColor.withOpacity(0.5)),
                               ),
                               child: Text(
                                 _getStatusLabel(status),
@@ -215,6 +186,62 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- DRAWER HELPER ---
+  Widget _buildDrawer(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Colors.blue),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
+                SizedBox(height: 10),
+                Text("Menu Kaprodi", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.book, color: Colors.blue),
+            title: const Text("Data Mata Kuliah"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData());
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.assignment, color: Colors.green),
+            title: const Text("Data CPL Prodi"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData());
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people, color: Colors.orange),
+            title: const Text("Data Dosen"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()));
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.account_tree, color: Colors.purple),
+            title: const Text("Set Standar CPL MK"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()));
+            },
           ),
         ],
       ),
@@ -237,6 +264,82 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildChartSection() {
+    double total = ((_stats['approved'] ?? 0) + (_stats['pending'] ?? 0) + (_stats['revisi'] ?? 0)).toDouble();
+    
+    return Container(
+      height: 220,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: total == 0 
+            ? const Center(child: Text("Belum ada data", style: TextStyle(fontSize: 12)))
+            : PieChart(
+                PieChartData(
+                  sectionsSpace: 2,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    PieChartSectionData(
+                      color: Colors.green,
+                      value: (_stats['approved'] ?? 0).toDouble(),
+                      title: '${_stats['approved']}',
+                      radius: 50,
+                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      color: Colors.orange,
+                      value: (_stats['pending'] ?? 0).toDouble(),
+                      title: '${_stats['pending']}',
+                      radius: 50,
+                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      color: Colors.red,
+                      value: (_stats['revisi'] ?? 0).toDouble(),
+                      title: '${_stats['revisi']}',
+                      radius: 50,
+                      titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+          ),
+          const SizedBox(width: 20),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildLegend(Colors.green, "Disetujui"),
+              const SizedBox(height: 8),
+              _buildLegend(Colors.orange, "Perlu Review"),
+              const SizedBox(height: 8),
+              _buildLegend(Colors.red, "Revisi"),
+              const Divider(height: 20),
+              Text("Total RPS: ${total.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend(Color color, String text) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
-import '../../services/pdf_helper.dart'; // IMPORT PDF HELPER
+import '../../services/pdf_helper.dart';
 import 'create_rps_page.dart';
 import '../shared/detail_rps_page.dart';
 import 'mapping_page.dart';
+import 'profile_page.dart'; // IMPORT HALAMAN PROFIL
 
 class DashboardDosen extends StatefulWidget {
   const DashboardDosen({super.key});
@@ -59,7 +60,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
                 debugPrint("Error: $e");
               }
             },
-            child: const Text("Hapus Semua"),
+            child: const Text("Hapus Semua", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -101,14 +102,18 @@ class _DashboardDosenState extends State<DashboardDosen> {
               iconColor: Colors.white,
               onSelected: (value) {
                 if (value == 'pilih') setState(() => _isSelectionMode = true);
+                if (value == 'profil') {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())).then((_) => _refreshData());
+                }
                 if (value == 'logout') {
                   Supabase.instance.client.auth.signOut();
                   Navigator.pushReplacementNamed(context, '/login');
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'pilih', child: Text("Pilih Banyak")),
-                const PopupMenuItem(value: 'logout', child: Text("Keluar Akun")),
+                const PopupMenuItem(value: 'pilih', child: Row(children: [Icon(Icons.checklist, size: 20), SizedBox(width: 10), Text("Pilih Banyak")])),
+                const PopupMenuItem(value: 'profil', child: Row(children: [Icon(Icons.fingerprint, size: 20), SizedBox(width: 10), Text("Profil & TTD")])),
+                const PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, size: 20, color: Colors.red), SizedBox(width: 10), Text("Keluar Akun")])),
               ],
             ),
           ] else ...[
@@ -187,7 +192,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
                             if (rps['catatan'] != null && (status == 'revisi' || status == 'revisi_selesai')) _buildCatatanBox(rps),
                           ],
                         ),
-                        // KIRIM DATA RPS KE TRAILING
                         trailing: _isSelectionMode ? null : _buildTrailingWidget(status, rpsId, rps),
                         onTap: () {
                           if (_isSelectionMode && canBeDeleted) {
@@ -235,7 +239,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
-  // UPDATE TRAILING WIDGET UNTUK TOMBOL PRINT
   Widget _buildTrailingWidget(String status, String rpsId, Map<String, dynamic> rps) {
     if (status == 'approved') {
       return IconButton(
