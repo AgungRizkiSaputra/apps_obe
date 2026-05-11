@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/rps_service.dart';
+import '../dosen/input_pertemuan_page.dart';
 
 class DetailRpsPage extends StatefulWidget {
   final String rpsId;
@@ -18,7 +19,14 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   @override
   void initState() {
     super.initState();
-    _detailFuture = rpsService.getRpsDetail(widget.rpsId);
+    _initData();
+  }
+
+  // Fungsi untuk inisialisasi data agar bisa dipanggil ulang saat refresh
+  void _initData() {
+    setState(() {
+      _detailFuture = rpsService.getRpsDetail(widget.rpsId);
+    });
   }
 
   // --- FUNGSI AKSI KAPRODI ---
@@ -69,7 +77,11 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Detail RPS OBE")),
+      appBar: AppBar(
+        title: const Text("Detail RPS OBE"),
+        backgroundColor: Colors.blue.shade800,
+        foregroundColor: Colors.white,
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _detailFuture,
         builder: (context, snapshot) {
@@ -81,6 +93,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
           final data = snapshot.data!;
           final mk = data['mata_kuliah']; 
           final listCpmk = (data['cpmk'] as List?) ?? [];
+          final listPertemuan = (data['rps_detail'] as List?) ?? [];
           final status = data['status'];
 
           return Column(
@@ -93,17 +106,32 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                     _buildInfoRow("Mata Kuliah", mk?['nama_mk'] ?? '-'),
                     _buildInfoRow("Kode MK", mk?['kode_mk'] ?? '-'),
                     _buildInfoRow("SKS", "${mk?['sks'] ?? '0'} SKS"),
-                    
-                    // --- MODIFIKASI SEMESTER: Menampilkan Angka & Kategori (Ganjil/Genap) ---
-                    _buildInfoRow(
-                      "Semester", 
-                      "${mk?['semester'] ?? '-'} (${data['semester'] ?? '-'})"
-                    ),
-                    
+                    _buildInfoRow("Semester", "${mk?['semester'] ?? '-'} (${data['semester'] ?? '-'})"),
                     _buildInfoRow("Dosen Pengampu", data['users']?['nama'] ?? '-'),
                     _buildInfoRow("Tahun Ajaran", data['tahun_ajaran'] ?? '-'),
                     
                     const SizedBox(height: 20),
+
+                    // --- TOMBOL INPUT PERTEMUAN (KHUSUS DOSEN) ---
+                    if (!widget.isKaprodi)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 15),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => InputPertemuanPage(rpsId: widget.rpsId))
+                            ).then((_) => _initData()); // Refresh data saat kembali
+                          },
+                          icon: const Icon(Icons.edit_calendar),
+                          label: const Text("Atur Rencana Pertemuan (Minggu 1-16)"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade50,
+                            foregroundColor: Colors.blue.shade800,
+                          ),
+                        ),
+                      ),
+                    
                     _buildHeader("Capaian Pembelajaran MK (CPMK)"),
                     
                     if (listCpmk.isEmpty)
@@ -146,11 +174,36 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                           ),
                         ),
                       );
-                    }),
+                    }).toList(),
+
+                    const SizedBox(height: 20),
+                    _buildHeader("Rencana Pertemuan"),
+                    
+                    if (listPertemuan.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text("Belum ada rencana pertemuan.", style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                      )
+                    else
+                      ...listPertemuan.map((p) => Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            radius: 15,
+                            backgroundColor: Colors.blue.shade100,
+                            child: Text("${p['minggu_ke']}", style: TextStyle(fontSize: 12, color: Colors.blue.shade800, fontWeight: FontWeight.bold)),
+                          ),
+                          title: Text(p['kemampuan_akhir'] ?? '-', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                          subtitle: Text("Metode: ${p['metode_pembelajaran'] ?? '-'}\nBobot: ${p['bobot_nilai']}%"),
+                        ),
+                      )).toList(),
+                    
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
               
+              // PANEL AKSI UNTUK KAPRODI
               if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision'))
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -188,9 +241,16 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   }
 
   Widget _buildHeader(String title) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-      );
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue.shade800,
+        ),
+      ),
+    );
 
   Widget _buildInfoRow(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),

@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:typed_data';
-import 'dart:io';
 
 
 class RpsService {
@@ -129,8 +128,9 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
               mapping_cpl_cpmk(
                 cpl(kode_cpl, deskripsi)
               )
-            )
-          ''') 
+            ),
+            rps_detail(*) 
+          ''') // rps_detail sudah ditambahkan di sini
           .eq('id', rpsId)
           .single();
       return response;
@@ -375,28 +375,27 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
 
   // 17. Fungsi untuk mengambil detail mapping (CPMK & CPL) khusus untuk Cetak PDF
   Future<List<Map<String, dynamic>>> getMappingFullForPdf(String rpsId) async {
-    try {
-      // Kita ambil data dari tabel cpmk yang rps_id-nya cocok
-      // Kita juga join ke tabel mapping dan cpl biar dapet KODE CPL-nya
-      final response = await supabase
-          .from('cpmk')
-          .select('''
-            id,
-            deskripsi,
-            mapping_cpl_cpmk (
-              cpl (
-                kode_cpl
-              )
+  try {
+    final response = await supabase
+        .from('cpmk')
+        .select('''
+          id,
+          deskripsi,
+          mapping_cpl_cpmk (
+            cpl (
+              kode_cpl,
+              deskripsi
             )
-          ''')
-          .eq('rps_id', rpsId);
+          )
+        ''')
+        .eq('rps_id', rpsId);
 
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print("Error ambil data PDF: $e");
-      return [];
-    }
+    return List<Map<String, dynamic>>.from(response);
+  } catch (e) {
+    print("Error ambil data mapping PDF: $e");
+    return [];
   }
+}
 
   // 18. Fungsi untuk upload tanda tangan dan update profil user
   Future<String> uploadSignature(String userId, Uint8List imageBytes) async {
@@ -472,5 +471,24 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     } catch (e) {
       throw "Gagal upload foto profil: $e";
     }
+  }
+
+  // 22. Simpan atau Update Detail Pertemuan
+  Future<void> saveRpsDetail(List<Map<String, dynamic>> details) async {
+    try {
+      await supabase.from('rps_detail').upsert(details);
+    } catch (e) {
+      throw "Gagal simpan detail pertemuan: $e";
+    }
+  }
+
+  // Ambil Detail Pertemuan berdasarkan rps_id
+  Future<List<Map<String, dynamic>>> getRpsDetails(String rpsId) async {
+    final res = await supabase
+        .from('rps_detail')
+        .select('*')
+        .eq('rps_id', rpsId)
+        .order('minggu_ke', ascending: true);
+    return List<Map<String, dynamic>>.from(res);
   }
 }

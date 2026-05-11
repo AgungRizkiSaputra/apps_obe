@@ -5,7 +5,8 @@ import '../../services/pdf_helper.dart';
 import 'create_rps_page.dart';
 import '../shared/detail_rps_page.dart';
 import 'mapping_page.dart';
-import 'profile_page.dart'; // IMPORT HALAMAN PROFIL
+import 'profile_page.dart';
+import '../auth/login_page.dart';
 
 class DashboardDosen extends StatefulWidget {
   const DashboardDosen({super.key});
@@ -22,7 +23,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
 
   bool _isSelectionMode = false;
   List<String> _selectedRpsIds = [];
-  String _searchQuery = ""; 
+  String _searchQuery = "";
 
   @override
   void initState() {
@@ -35,6 +36,35 @@ class _DashboardDosenState extends State<DashboardDosen> {
     setState(() {
       _rpsFuture = dataBaru;
     });
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Keluar Akun"),
+        content: const Text("Apakah Anda yakin ingin keluar dari aplikasi?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Keluar", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await Supabase.instance.client.auth.signOut();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    }
   }
 
   void _confirmBulkDelete() {
@@ -71,6 +101,11 @@ class _DashboardDosenState extends State<DashboardDosen> {
     try {
       await rpsService.updateStatusRps(rpsId, 'waiting_approval');
       _refreshData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("RPS berhasil dikirim untuk divalidasi Kaprodi"), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
       debugPrint("Error: $e");
     }
@@ -84,18 +119,18 @@ class _DashboardDosenState extends State<DashboardDosen> {
         backgroundColor: Colors.blue.shade800,
         elevation: 0,
         toolbarHeight: 70,
-        title: _isSelectionMode 
-          ? Text("${_selectedRpsIds.length} Terpilih", style: const TextStyle(color: Colors.white))
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Selamat Datang,", style: TextStyle(fontSize: 12, color: Colors.white70)),
-                Text(
-                  user?.userMetadata?['nama'] ?? "Dosen Pengajar", 
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ],
-            ),
+        title: _isSelectionMode
+            ? Text("${_selectedRpsIds.length} Terpilih", style: const TextStyle(color: Colors.white))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Selamat Datang,", style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(
+                    user?.userMetadata?['nama'] ?? "Dosen Pengajar",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
         actions: [
           if (!_isSelectionMode) ...[
             PopupMenuButton<String>(
@@ -105,10 +140,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
                 if (value == 'profil') {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())).then((_) => _refreshData());
                 }
-                if (value == 'logout') {
-                  Supabase.instance.client.auth.signOut();
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
+                if (value == 'logout') _handleLogout();
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(value: 'pilih', child: Row(children: [Icon(Icons.checklist, size: 20), SizedBox(width: 10), Text("Pilih Banyak")])),
@@ -148,20 +180,19 @@ class _DashboardDosenState extends State<DashboardDosen> {
               ),
             ),
           ),
-
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _rpsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                
+
                 final listRps = snapshot.data ?? [];
                 final filteredList = listRps.where((rps) {
                   final namaMk = (rps['mata_kuliah']?['nama_mk'] ?? '').toString().toLowerCase();
                   return namaMk.contains(_searchQuery);
                 }).toList();
 
-                if (filteredList.isEmpty) return const Center(child: Text("Data tidak ditemukan."));
+                if (filteredList.isEmpty) return const Center(child: Text("Data RPS kosong."));
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(15),
@@ -180,7 +211,9 @@ class _DashboardDosenState extends State<DashboardDosen> {
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(10),
                         leading: _isSelectionMode
-                            ? (canBeDeleted ? Checkbox(value: _selectedRpsIds.contains(rpsId), onChanged: (val) => setState(() => val == true ? _selectedRpsIds.add(rpsId) : _selectedRpsIds.remove(rpsId))) : const Icon(Icons.lock_outline, color: Colors.grey))
+                            ? (canBeDeleted
+                                ? Checkbox(value: _selectedRpsIds.contains(rpsId), onChanged: (val) => setState(() => val == true ? _selectedRpsIds.add(rpsId) : _selectedRpsIds.remove(rpsId)))
+                                : const Icon(Icons.lock_outline, color: Colors.grey))
                             : null,
                         title: Text(rps['mata_kuliah']?['nama_mk'] ?? 'Mata Kuliah', style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Column(
@@ -227,14 +260,27 @@ class _DashboardDosenState extends State<DashboardDosen> {
           content: Text(rps['catatan'] ?? "-"),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("Tutup")),
-            if (rps['status'] == 'revisi') ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => MappingPage(rpsData: rps, isRevision: true))).then((_) => _refreshData()); }, child: const Text("Perbaiki Sekarang")),
+            if (rps['status'] == 'revisi')
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => MappingPage(rpsData: rps, isRevision: true))).then((_) => _refreshData());
+                },
+                child: const Text("Perbaiki Sekarang"),
+              ),
           ],
         ),
       ),
       child: Container(
-        margin: const EdgeInsets.only(top: 10), padding: const EdgeInsets.all(8),
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.orange.withOpacity(0.5))),
-        child: Row(children: [const Icon(Icons.info_outline, color: Colors.orange, size: 16), const SizedBox(width: 8), Expanded(child: Text("Catatan: ${rps['catatan']}", maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))), const Icon(Icons.open_in_new, size: 14, color: Colors.orange)]),
+        child: Row(children: [
+          const Icon(Icons.info_outline, color: Colors.orange, size: 16),
+          const SizedBox(width: 8),
+          Expanded(child: Text("Catatan: ${rps['catatan']}", maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))),
+          const Icon(Icons.open_in_new, size: 14, color: Colors.orange)
+        ]),
       ),
     );
   }
@@ -244,16 +290,18 @@ class _DashboardDosenState extends State<DashboardDosen> {
       return IconButton(
         icon: const Icon(Icons.print, color: Colors.green, size: 28),
         onPressed: () async {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Menyiapkan dokumen PDF..."), duration: Duration(seconds: 1)),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Menyiapkan dokumen PDF..."), duration: Duration(seconds: 1)));
           try {
+            // --- BAGIAN KRUSIAL GUNG ---
+            // Ambil data RPS lengkap (termasuk users dan rps_detail)
+            final fullRpsData = await rpsService.getRpsDetail(rpsId);
+            // Ambil data mapping CPMK-CPL
             final mapping = await rpsService.getMappingFullForPdf(rpsId);
-            await PdfHelper.cetakRps(rps, mapping);
+            
+            // Panggil helper cetak dengan data yang sudah lengkap
+            await PdfHelper.cetakRps(fullRpsData, mapping);
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Gagal cetak PDF: $e"), backgroundColor: Colors.red),
-            );
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal cetak PDF: $e"), backgroundColor: Colors.red));
           }
         },
       );
@@ -270,14 +318,20 @@ class _DashboardDosenState extends State<DashboardDosen> {
   }
 
   Widget _buildStatusChip(String status) {
-    Color color; String label = status.toUpperCase();
+    Color color;
+    String label = status.toUpperCase();
     switch (status) {
       case 'approved': color = Colors.green; label = "DISETUJUI"; break;
-      case 'revisi': color = Colors.orange; break;
+      case 'revisi': color = Colors.orange; label = "REVISI"; break;
       case 'revisi_selesai': color = Colors.cyan; label = "REVISI DISIMPAN"; break;
-      case 'waiting_approval': case 'waiting_approval_revision': color = Colors.blue; label = "DITINJAU"; break;
-      default: color = Colors.grey;
+      case 'waiting_approval':
+      case 'waiting_approval_revision': color = Colors.blue; label = "DITINJAU"; break;
+      default: color = Colors.grey; label = "DRAFT";
     }
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)), child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+    );
   }
 }

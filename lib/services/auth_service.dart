@@ -16,4 +16,9 @@ class AuthService {
 
     return response;
   }
+
+  // Di dalam class AuthService
+  Future<void> signOut() async {
+    await supabase.auth.signOut();
+  }
 }
