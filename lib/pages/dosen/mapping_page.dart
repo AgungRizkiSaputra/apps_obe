@@ -127,6 +127,7 @@ class _MappingPageState extends State<MappingPage> {
     }
   }
 
+  // ignore: unused_element
   void _showSnackBar(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: color),
