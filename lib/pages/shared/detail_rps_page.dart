@@ -22,14 +22,12 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     _initData();
   }
 
-  // Fungsi untuk inisialisasi data agar bisa dipanggil ulang saat refresh
   void _initData() {
     setState(() {
       _detailFuture = rpsService.getRpsDetail(widget.rpsId);
     });
   }
 
-  // --- FUNGSI AKSI KAPRODI ---
   Future<void> _updateStatus(String status, {String? catatan}) async {
     try {
       await rpsService.updateStatusRps(widget.rpsId, status, catatan: catatan);
@@ -37,7 +35,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Berhasil mengubah status ke $status")),
         );
-        Navigator.pop(context); // Kembali ke dashboard
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -112,7 +110,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                     
                     const SizedBox(height: 20),
 
-                    // --- TOMBOL INPUT PERTEMUAN (KHUSUS DOSEN) ---
                     if (!widget.isKaprodi)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 15),
@@ -121,10 +118,10 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => InputPertemuanPage(rpsId: widget.rpsId))
-                            ).then((_) => _initData()); // Refresh data saat kembali
+                            ).then((_) => _initData());
                           },
                           icon: const Icon(Icons.edit_calendar),
-                          label: const Text("Atur Rencana Pertemuan (Minggu 1-16)"),
+                          label: const Text("Atur Rencana Pertemuan (Minggu 1-14)"),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue.shade50,
                             foregroundColor: Colors.blue.shade800,
@@ -162,7 +159,11 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                        child: Text(m['cpl']['kode_cpl'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.blue)),
+                                        // MENAMPILKAN BOBOT DI SINI GUNG
+                                        child: Text(
+                                          "${m['cpl']['kode_cpl']} (${m['bobot'] ?? 0}%)", 
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.blue)
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(m['cpl']['deskripsi'], style: const TextStyle(fontSize: 12))),
@@ -203,7 +204,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                 ),
               ),
               
-              // PANEL AKSI UNTUK KAPRODI
               if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision'))
                 Container(
                   padding: const EdgeInsets.all(16),

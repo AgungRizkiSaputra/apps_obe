@@ -28,8 +28,8 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
       
       setState(() {
-        // Generate 16 minggu, jika ada data lama pakai data lama, jika tidak buat baru
-        _pertemuanData = List.generate(16, (index) {
+        // Generate 14 minggu, jika ada data lama pakai data lama, jika tidak buat baru
+        _pertemuanData = List.generate(14, (index) {
           final mingguKe = index + 1;
           final match = existingData.firstWhere(
             (element) => element['minggu_ke'] == mingguKe,
@@ -85,7 +85,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Rencana Pertemuan (1-16)"),
+        title: const Text("Rencana Pertemuan (1-14)"),
         backgroundColor: Colors.blue.shade800,
         foregroundColor: Colors.white,
         actions: [
