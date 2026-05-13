@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:typed_data';
 
-
 class RpsService {
   final supabase = Supabase.instance.client;
 
@@ -13,37 +12,33 @@ class RpsService {
           *,
           mata_kuliah (nama_mk, kode_mk, sks),
           users (nama, signature_url) 
-        ''') // <--- PASTIKAN ADA signature_url DI SINI
+        ''')
         .eq('dosen_id', dosenId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }
 
   // 2. Ambil daftar RPS untuk Kaprodi 
-  // Di rps_service.dart
-Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
-  try {
-    final response = await supabase
-        .from('rps')
-        .select('*, mata_kuliah(nama_mk), users(nama)') 
-        .neq('status', 'draft') 
-        // Urutkan berdasarkan status secara manual di aplikasi atau 
-        // urutkan berdasarkan created_at terbaru
-        .order('created_at', ascending: false);
-    
-    // Tips: Kamu bisa sortir di Flutter agar 'waiting_approval' selalu di index 0
-    List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(response);
-    list.sort((a, b) {
-      if (a['status'].contains('waiting') && !b['status'].contains('waiting')) return -1;
-      if (!a['status'].contains('waiting') && b['status'].contains('waiting')) return 1;
-      return 0;
-    });
-    
-    return list;
-  } catch (e) {
-    throw 'Gagal mengambil data review: $e';
+  Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
+    try {
+      final response = await supabase
+          .from('rps')
+          .select('*, mata_kuliah(nama_mk), users(nama)') 
+          .neq('status', 'draft') 
+          .order('created_at', ascending: false);
+      
+      List<Map<String, dynamic>> list = List<Map<String, dynamic>>.from(response);
+      list.sort((a, b) {
+        if (a['status'].contains('waiting') && !b['status'].contains('waiting')) return -1;
+        if (!a['status'].contains('waiting') && b['status'].contains('waiting')) return 1;
+        return 0;
+      });
+      
+      return list;
+    } catch (e) {
+      throw 'Gagal mengambil data review: $e';
+    }
   }
-}
 
   // 3. Logika Buat RPS Baru 
   Future<Map<String, dynamic>> createRps({
@@ -88,7 +83,7 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     }
   }
 
-  // 5. Fungsi untuk menyimpan CPMK dan Mapping CPL-nya
+  // 5. Fungsi untuk menyimpan CPMK dan Mapping CPL-nya (Legacy)
   Future<void> saveMapping({
     required String rpsId,
     required String deskripsi, 
@@ -143,10 +138,7 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   // 7. Fungsi untuk menghapus mapping lama
   Future<void> deleteExistingMapping(String rpsId) async {
       try {
-        // Sekarang cukup hapus induknya (CPMK), 
-        // mapping_cpl_cpmk otomatis terhapus oleh database!
         await supabase.from('cpmk').delete().eq('rps_id', rpsId);
-        
         print("Data mapping OBE berhasil dibersihkan otomatis oleh Database.");
       } catch (e) {
         throw 'Gagal membersihkan data lama: $e';
@@ -177,10 +169,8 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   }
 
   // 10. Fungsi hapus massal
-    Future<void> deleteMultipleRps(List<String> rpsIds) async {
+  Future<void> deleteMultipleRps(List<String> rpsIds) async {
     try {
-      // Karena sudah pakai ON DELETE CASCADE di SQL tadi, 
-      // cukup hapus di tabel rps saja.
       await supabase.from('rps').delete().inFilter('id', rpsIds);
     } catch (e) {
       print("Detail Error: $e");
@@ -188,8 +178,6 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     }
   }
 
-  // --- MANAJEMEN MATA KULIAH ---
-  
   // 11. Ambil semua daftar MK
   Future<List<Map<String, dynamic>>> getAllMataKuliah() async {
     try {
@@ -236,13 +224,10 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     try {
       await supabase.from('mata_kuliah').delete().eq('id', id);
     } catch (e) {
-      // Biasanya error jika MK sudah dipakai di tabel RPS (Foreign Key Constraint)
       throw 'Tidak bisa menghapus MK ini karena sudah digunakan dalam data RPS.';
     }
   }
 
-  // --- MANAJEMEN CPL ---
-  
   // 12. Ambil semua daftar CPL untuk Kaprodi
   Future<List<Map<String, dynamic>>> getAllCpl() async {
     try {
@@ -281,64 +266,33 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     try {
       await supabase.from('cpl').delete().eq('id', id);
     } catch (e) {
-      // Akan error jika CPL sudah terikat di mapping_cpl_cpmk (Foreign Key)
       throw 'CPL tidak bisa dihapus karena sudah digunakan dalam mapping RPS Dosen.';
     }
   }
 
   // 13. Fungsi untuk mengambil statistik dashboard Kaprodi
   Future<Map<String, dynamic>> getKaprodiStats() async {
-  try {
-    // Ambil data status RPS
-    final rpsResponse = await supabase
-        .from('rps')
-        .select('status');
+    try {
+      final rpsResponse = await supabase.from('rps').select('status');
+      final mkResponse = await supabase.from('mata_kuliah').select();
+      final cplResponse = await supabase.from('cpl').select();
 
-    // Ambil semua data MK
-    final mkResponse = await supabase
-        .from('mata_kuliah')
-        .select();
+      final List allRps = List.from(rpsResponse);
+      final List allMk = List.from(mkResponse);
+      final List allCpl = List.from(cplResponse);
 
-    // Ambil semua data CPL
-    final cplResponse = await supabase
-        .from('cpl')
-        .select();
-
-    final List allRps = List.from(rpsResponse);
-    final List allMk = List.from(mkResponse);
-    final List allCpl = List.from(cplResponse);
-
-    return {
-      'pending': allRps
-          .where((r) => r['status'].toString().contains('waiting'))
-          .length,
-
-      'approved': allRps
-          .where((r) => r['status'] == 'approved')
-          .length,
-
-      'revisi': allRps
-          .where((r) =>
-              r['status'] == 'revisi' ||
-              r['status'] == 'revisi_selesai')
-          .length,
-
-      'mk': allMk.length,
-
-      'cpl': allCpl.length,
-    };
-  } catch (e) {
-    print("Error Stats: $e");
-
-    return {
-      'pending': 0,
-      'approved': 0,
-      'revisi': 0,
-      'mk': 0,
-      'cpl': 0,
-    };
+      return {
+        'pending': allRps.where((r) => r['status'].toString().contains('waiting')).length,
+        'approved': allRps.where((r) => r['status'] == 'approved').length,
+        'revisi': allRps.where((r) => r['status'] == 'revisi' || r['status'] == 'revisi_selesai').length,
+        'mk': allMk.length,
+        'cpl': allCpl.length,
+      };
+    } catch (e) {
+      print("Error Stats: $e");
+      return {'pending': 0, 'approved': 0, 'revisi': 0, 'mk': 0, 'cpl': 0};
+    }
   }
-}
 
   // 14. Ambil Data Semua Dosen
   Future<List<Map<String, dynamic>>> getAllDosen() async {
@@ -357,9 +311,7 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   // 15. Simpan standar mapping CPL untuk satu Mata Kuliah
   Future<void> saveStandarMapping(String mkId, List<String> selectedCplIds) async {
     try {
-      // Hapus standar lama dulu biar nggak numpuk
       await supabase.from('standar_mapping_mk').delete().eq('mk_id', mkId);
-      
       if (selectedCplIds.isNotEmpty) {
         final data = selectedCplIds.map((cplId) => {
           'mk_id': mkId,
@@ -379,22 +331,19 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
           .from('standar_mapping_mk')
           .select('cpl_id')
           .eq('mk_id', mkId);
-
-      // Kita ganti logika pengecekannya biar VS Code nggak komplain "Dead Code"
       final List data = response as List? ?? [];
-      
       return data.map((item) => item['cpl_id'].toString()).toList();
     } catch (e) {
-      // Ganti debugPrint jadi print biasa
       print("Error getStandarCplIds: $e");
-      return []; // Jika error, kembalikan list kosong
+      return [];
     }
   }
 
   // 17. Fungsi untuk mengambil detail mapping (CPMK & CPL) khusus untuk Cetak PDF
   Future<List<Map<String, dynamic>>> getMappingFullForPdf(String rpsId) async {
     final res = await supabase.from('cpmk').select('''
-          id, deskripsi,
+          id, 
+          deskripsi,
           mapping_cpl_cpmk ( 
             bobot, 
             cpl ( kode_cpl, deskripsi ) 
@@ -407,21 +356,13 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   Future<String> uploadSignature(String userId, Uint8List imageBytes) async {
     try {
       final fileName = 'sig_$userId.png';
-      
-      // Gunakan .upload (bukan uploadBytes) karena versi terbaru otomatis handle bytes
       await supabase.storage.from('signatures').uploadBinary(
             fileName,
             imageBytes,
-            fileOptions: const FileOptions(
-              upsert: true, 
-              contentType: 'image/png'
-            ),
+            fileOptions: const FileOptions(upsert: true, contentType: 'image/png'),
           );
-
       final imageUrl = supabase.storage.from('signatures').getPublicUrl(fileName);
-
       await supabase.from('users').update({'signature_url': imageUrl}).eq('id', userId);
-
       return imageUrl;
     } catch (e) {
       throw "Gagal simpan tanda tangan: $e";
@@ -431,12 +372,7 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   // 19. Fungsi untuk update profil (Nama)
   Future<void> updateProfile(String userId, String newName) async {
     try {
-      // 1. Update metadata di Auth (supaya kalau login ulang datanya baru)
-      await supabase.auth.updateUser(
-        UserAttributes(data: {'nama': newName}),
-      );
-
-      // 2. Update di tabel users kamu
+      await supabase.auth.updateUser(UserAttributes(data: {'nama': newName}));
       await supabase.from('users').update({'nama': newName}).eq('id', userId);
     } catch (e) {
       throw "Gagal update profil: $e";
@@ -446,33 +382,23 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   // 20. Fungsi untuk ganti password
   Future<void> changePassword(String newPassword) async {
     try {
-      await supabase.auth.updateUser(
-        UserAttributes(password: newPassword),
-      );
+      await supabase.auth.updateUser(UserAttributes(password: newPassword));
     } catch (e) {
       throw "Gagal ganti password: $e";
     }
   }
 
-  // 21. Fungsi untuk upload foto profil dan update metadata user
+  // 21. Fungsi untuk upload foto profil
   Future<String> uploadAvatar(String userId, Uint8List bytes, String extension) async {
     try {
       final fileName = 'avatar_$userId.$extension';
-      
-      // Gunakan uploadBinary untuk data mentah (bytes) agar jalan di WEB
       await supabase.storage.from('avatars').uploadBinary(
             fileName,
             bytes,
             fileOptions: FileOptions(upsert: true, contentType: 'image/$extension'),
           );
-
       final imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-      // Update metadata auth
-      await supabase.auth.updateUser(
-        UserAttributes(data: {'avatar_url': imageUrl}),
-      );
-
+      await supabase.auth.updateUser(UserAttributes(data: {'avatar_url': imageUrl}));
       return imageUrl;
     } catch (e) {
       throw "Gagal upload foto profil: $e";
@@ -482,20 +408,13 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
   // 22. Simpan atau Update Detail Pertemuan
   Future<void> saveRpsDetail(List<Map<String, dynamic>> details) async {
     try {
-      // 1. Validasi Sederhana: Cek apakah ada data yang kosong sebelum kirim ke DB
       for (var item in details) {
         if (item['materi'].toString().trim().isEmpty || item['kemampuan_akhir'].toString().trim().isEmpty) {
           throw "Materi atau Kemampuan Akhir pada Minggu ke-${item['minggu_ke']} tidak boleh kosong!";
         }
       }
-
-      // 2. Gunakan upsert agar bisa edit (menimpa data lama jika rps_id & minggu_ke sama)
-      await supabase.from('rps_detail').upsert(
-        details,
-        onConflict: 'rps_id, minggu_ke', 
-      );
+      await supabase.from('rps_detail').upsert(details, onConflict: 'rps_id, minggu_ke');
     } catch (e) {
-      // Jika error karena validasi atau database, lempar pesan error yang jelas ke UI
       throw e.toString();
     }
   }
@@ -526,24 +445,18 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     required List<Map<String, dynamic>> mappingData,
   }) async {
     try {
-      // 1. Simpan CPMK
       final cpmkResponse = await supabase
           .from('cpmk')
-          .insert({
-            'rps_id': rpsId,
-            'deskripsi': deskripsi,
-          })
-          .select()
-          .single();
+          .insert({'rps_id': rpsId, 'deskripsi': deskripsi})
+          .select().single();
 
       final String newCpmkId = cpmkResponse['id'].toString();
 
-      // 2. Siapkan data mapping (PASTIKAN BOBOT MASUK DI SINI)
       final List<Map<String, dynamic>> finalMapping = mappingData.map((item) {
         return {
           'cpmk_id': newCpmkId,
           'cpl_id': item['cpl_id'],
-          'bobot': item['bobot'], // <--- Nilai ini harus dikirim dari UI (misal: 50 atau 100)
+          'bobot': item['bobot'], 
         };
       }).toList();
 
@@ -553,16 +466,12 @@ Future<List<Map<String, dynamic>>> getRpsForKaprodi() async {
     }
   }
 
+  // 24. Tambahan: Fungsi dengan penamaan sesuai permintaan sebelumnya
   Future<void> saveRencanaPertemuan(List<Map<String, dynamic>> dataPertemuan) async {
-  try {
-    // Gunakan upsert dengan onConflict: 'rps_id, minggu_ke' 
-    // agar data yang minggu-nya sama otomatis ter-update
-    await supabase.from('rps_detail').upsert(
-      dataPertemuan,
-      onConflict: 'rps_id, minggu_ke', 
-    );
-  } catch (e) {
-    throw 'Gagal memperbarui rencana: $e';
+    try {
+      await supabase.from('rps_detail').upsert(dataPertemuan, onConflict: 'rps_id, minggu_ke');
+    } catch (e) {
+      throw 'Gagal memperbarui rencana: $e';
+    }
   }
-}
 }

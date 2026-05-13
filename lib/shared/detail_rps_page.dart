@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/rps_service.dart';
-import '../dosen/input_pertemuan_page.dart';
+import '../services/rps_service.dart';
+import '../pages/dosen/input_pertemuan_page.dart';
 
 class DetailRpsPage extends StatefulWidget {
   final String rpsId;

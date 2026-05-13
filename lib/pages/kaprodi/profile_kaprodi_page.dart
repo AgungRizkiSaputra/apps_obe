@@ -5,14 +5,14 @@ import 'package:signature/signature.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+class ProfileKaprodiPage extends StatefulWidget {
+  const ProfileKaprodiPage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  State<ProfileKaprodiPage> createState() => _ProfileKaprodiPageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
   
@@ -41,7 +41,7 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  // --- LOGIKA UPLOAD FOTO PROFIL ---
+  // --- LOGIKA UPLOAD FOTO ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
@@ -49,11 +49,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final extension = image.name.split('.').last;
-      
-      setState(() {
-        _webImage = bytes;
-      });
-      
+      setState(() => _webImage = bytes);
       _handleUpdateAvatar(bytes, extension);
     }
   }
@@ -62,12 +58,10 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
     try {
       final newUrl = await rpsService.uploadAvatar(user!.id, bytes, ext);
-      setState(() {
-        _avatarUrl = newUrl;
-      });
+      setState(() => _avatarUrl = newUrl);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Foto profil berhasil diperbarui!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Foto profil Kaprodi diperbarui!"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -83,7 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() => _isLoading = true);
     try {
       await rpsService.updateProfile(user!.id, _namaController.text);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Nama berhasil diperbarui!"), backgroundColor: Colors.green));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Nama Kaprodi berhasil diperbarui!"), backgroundColor: Colors.green));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     } finally {
@@ -94,34 +88,46 @@ class _ProfilePageState extends State<ProfilePage> {
   // --- FUNGSI GANTI PASSWORD ---
   void _showChangePasswordDialog() {
     final passController = TextEditingController();
-    showDialog(context: context, builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      title: const Text("Ganti Password"),
-      content: TextField(
-        controller: passController, 
-        obscureText: true, 
-        decoration: const InputDecoration(hintText: "Password baru (min 6 karakter)", border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock_outline))
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: const Text("Ganti Password Akun"),
+        content: TextField(
+          controller: passController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            hintText: "Minimal 6 karakter",
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.lock_outline),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          ElevatedButton(
+            onPressed: () async {
+              if (passController.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password terlalu pendek!")));
+                return;
+              }
+              try {
+                await rpsService.changePassword(passController.text);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password berhasil diperbarui!"), backgroundColor: Colors.green));
+                }
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+              }
+            },
+            child: const Text("Simpan"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
-        ElevatedButton(onPressed: () async {
-          if (passController.text.length < 6) { 
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Min 6 karakter"), backgroundColor: Colors.orange)); 
-            return; 
-          }
-          try { 
-            await rpsService.changePassword(passController.text); 
-            if (mounted) { 
-              Navigator.pop(context); 
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password berhasil diganti!"), backgroundColor: Colors.green)); 
-            }
-          } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red)); }
-        }, child: const Text("Update")),
-      ],
-    ));
+    );
   }
 
-  // --- LOGIKA SIMPAN TANDA TANGAN (SAMA DENGAN KAPRODI) ---
+  // --- LOGIKA SIMPAN TTD ---
   Future<void> _saveSignature() async {
     if (_sigController.isEmpty) return;
     setState(() => _isLoading = true);
@@ -129,11 +135,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final Uint8List? data = await _sigController.toPngBytes();
       if (data != null) {
         await rpsService.uploadSignature(user!.id, data);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Tanda tangan Dosen berhasil disimpan!"), backgroundColor: Colors.green)
-          );
-        }
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tanda tangan Kaprodi disimpan!"), backgroundColor: Colors.green));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
@@ -144,12 +146,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.blue.shade800;
+    final primaryColor = Colors.indigo.shade900; 
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text("Profil Pengguna"),
+        title: const Text("Profil Kaprodi"),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -158,7 +160,6 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- HEADER BIRU ---
             Container(
               height: 100,
               width: double.infinity,
@@ -168,11 +169,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text(user?.email ?? "-", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                child: Text("Kaprodi: ${user?.email ?? "-"}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
               ),
             ),
 
-            // --- FOTO PROFIL MELAYANG ---
             Transform.translate(
               offset: const Offset(0, -50),
               child: Stack(
@@ -211,17 +211,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             
-            // --- KARTU INFORMASI ---
             _buildSectionCard(
-              title: "Informasi Dosen",
-              icon: Icons.badge_outlined,
+              title: "Data Struktural",
+              icon: Icons.account_balance_outlined,
               child: Column(
                 children: [
                   TextField(
                     controller: _namaController,
                     decoration: InputDecoration(
-                      labelText: "Nama Lengkap & Gelar",
-                      prefixIcon: const Icon(Icons.person_outline),
+                      labelText: "Nama Kaprodi & Gelar",
+                      prefixIcon: const Icon(Icons.person),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                       filled: true,
                       fillColor: Colors.grey.shade50,
@@ -239,7 +238,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       onPressed: _isLoading ? null : _handleUpdateProfile,
                       icon: const Icon(Icons.save),
-                      label: const Text("Perbarui Nama", style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text("Simpan Perubahan", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -247,21 +246,21 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
 
             _buildSectionCard(
-              title: "Privasi Akun",
-              icon: Icons.security_outlined,
+              title: "Keamanan Akun",
+              icon: Icons.security,
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(backgroundColor: Colors.orange.shade50, child: const Icon(Icons.lock_open, color: Colors.orange)),
-                title: const Text("Kata Sandi", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Ganti password login Anda"),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                leading: const Icon(Icons.password, color: Colors.orange),
+                title: const Text("Ubah Kata Sandi"),
+                subtitle: const Text("Amankan akun Kaprodi Anda"),
+                trailing: const Icon(Icons.chevron_right),
                 onTap: _showChangePasswordDialog,
               ),
             ),
 
             _buildSectionCard(
-              title: "E-Signature",
-              icon: Icons.gesture,
+              title: "Tanda Tangan Kaprodi",
+              icon: Icons.draw_outlined,
               child: Column(
                 children: [
                   Container(
@@ -286,14 +285,14 @@ class _ProfilePageState extends State<ProfilePage> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                           ),
                           onPressed: () => _sigController.clear(),
-                          child: const Text("Reset"),
+                          child: const Text("Hapus"),
                         ),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade700, 
+                            backgroundColor: Colors.blue.shade900, 
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                           ),
@@ -328,7 +327,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.blue.shade800, size: 22),
+              Icon(icon, color: Colors.indigo.shade900, size: 22),
               const SizedBox(width: 12),
               Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],

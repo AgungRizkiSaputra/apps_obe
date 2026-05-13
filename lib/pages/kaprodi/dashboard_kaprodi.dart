@@ -3,11 +3,12 @@ import 'package:rps_obe_app/pages/kaprodi/manage_cpl_page.dart';
 import 'package:rps_obe_app/pages/kaprodi/set_standar_mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
-import '../shared/detail_rps_page.dart';
-import '../auth/login_page.dart'; // Import LoginPage
+import '../../shared/detail_rps_page.dart';
+import '../auth/login_page.dart';
 import 'manage_mk_page.dart';
 import 'manage_dosen_page.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'profile_kaprodi_page.dart'; 
 
 class DashboardKaprodi extends StatefulWidget {
   const DashboardKaprodi({super.key});
@@ -86,7 +87,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      // APPBAR IDENTIK DENGAN DASHBOARD DOSEN
       appBar: AppBar(
         backgroundColor: primaryColor,
         elevation: 0,
@@ -115,7 +115,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         onRefresh: () async => _refreshData(),
         child: ListView(
           children: [
-            // AKSEN BIRU MELENGKUNG DI BAWAH APPBAR
             Container(
               height: 20,
               decoration: BoxDecoration(
@@ -126,11 +125,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                 ),
               ),
             ),
-
-            // 1. GRAFIK MONITORING
             _buildChartSection(),
-
-            // 2. STAT CARDS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
@@ -141,14 +136,11 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                 ],
               ),
             ),
-
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 25, 20, 10),
               child: Text("Daftar RPS Masuk", 
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
-
-            // 3. DAFTAR RPS
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _reviewFuture,
               builder: (context, snapshot) {
@@ -158,7 +150,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                     child: CircularProgressIndicator(),
                   ));
                 }
-                
                 final listReview = snapshot.data ?? [];
                 if (listReview.isEmpty) {
                   return const Center(child: Padding(
@@ -166,7 +157,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                     child: Text("Belum ada RPS yang masuk."),
                   ));
                 }
-
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -176,7 +166,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                     final rps = listReview[index];
                     final status = rps['status'] ?? '';
                     final statusColor = _getStatusColor(status);
-
                     return Card(
                       elevation: 1,
                       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -218,7 +207,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  // --- WIDGET KECIL UNTUK LABEL STATUS ---
   Widget _buildSmallStatusChip(String status, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -233,7 +221,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  // --- STAT CARD HELPER ---
   Widget _buildStatCard(String label, String count, Color color) {
     return Expanded(
       child: Card(
@@ -253,10 +240,8 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  // --- PIE CHART MONITORING ---
   Widget _buildChartSection() {
     double total = ((_stats['approved'] ?? 0) + (_stats['pending'] ?? 0) + (_stats['revisi'] ?? 0)).toDouble();
-    
     return Container(
       height: 200,
       margin: const EdgeInsets.all(16),
@@ -312,19 +297,30 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  // --- DRAWER MENU ADMIN ---
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
       child: Column(
         children: [
-          UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: Colors.blue.shade800),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.admin_panel_settings, color: Colors.blue, size: 40),
+          // HEADER DRAWER BISA DIKLIK KE PROFIL
+          GestureDetector(
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileKaprodiPage())).then((_) => _refreshData());
+            },
+            child: UserAccountsDrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue.shade800),
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: Colors.white,
+                backgroundImage: user?.userMetadata?['avatar_url'] != null
+                    ? NetworkImage(user!.userMetadata?['avatar_url'])
+                    : null,
+                child: user?.userMetadata?['avatar_url'] == null
+                    ? const Icon(Icons.admin_panel_settings, color: Colors.blue, size: 40)
+                    : null,
+              ),
+              accountName: Text(user?.userMetadata?['nama'] ?? "Nama Kaprodi"),
+              accountEmail: Text(user?.email ?? ""),
             ),
-            accountName: Text(user?.userMetadata?['nama'] ?? "Kaprodi"),
-            accountEmail: Text(user?.email ?? ""),
           ),
           ListTile(
             leading: const Icon(Icons.book, color: Colors.blue),
@@ -350,7 +346,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()));
             },
           ),
-          const Divider(),
           ListTile(
             leading: const Icon(Icons.account_tree, color: Colors.purple),
             title: const Text("Set Standar CPL MK"),
@@ -359,6 +354,23 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()));
             },
           ),
+          const Divider(),
+          // MENU PROFIL SAYA
+          ListTile(
+            leading: const Icon(Icons.person_pin, color: Colors.indigo),
+            title: const Text("Profil Saya"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileKaprodiPage())).then((_) => _refreshData());
+            },
+          ),
+          const Spacer(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text("Keluar"),
+            onTap: _handleLogout,
+          ),
+          const SizedBox(height: 10),
         ],
       ),
     );

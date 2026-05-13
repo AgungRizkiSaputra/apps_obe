@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 import '../../services/pdf_helper.dart';
 import 'create_rps_page.dart';
-import '../shared/detail_rps_page.dart';
+import '../../shared/detail_rps_page.dart';
 import 'mapping_page.dart';
 import 'profile_page.dart';
 import '../auth/login_page.dart';

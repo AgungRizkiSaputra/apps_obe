@@ -17,7 +17,6 @@ class _MappingPageState extends State<MappingPage> {
   final _supabase = Supabase.instance.client;
   final _cpmkController = TextEditingController();
   
-  // Map untuk menyimpan controller bobot tiap CPL yang dipilih
   Map<String, TextEditingController> _weightControllers = {};
   
   List<Map<String, dynamic>> listCpl = [];
@@ -51,7 +50,7 @@ class _MappingPageState extends State<MappingPage> {
 
         if (!widget.isRevision) {
           selectedCplIds = List<String>.from(standarCplIds);
-          // Inisialisasi controller untuk CPL standar
+          // Inisialisasi controller untuk CPL standar dengan nilai awal 0
           for (var id in selectedCplIds) {
             _weightControllers[id] = TextEditingController(text: "0");
           }
@@ -64,7 +63,6 @@ class _MappingPageState extends State<MappingPage> {
     }
   }
 
-  // Fungsi untuk menghitung total bobot secara real-time
   double _calculateTotalWeight() {
     double total = 0;
     _weightControllers.forEach((_, controller) {
@@ -74,10 +72,22 @@ class _MappingPageState extends State<MappingPage> {
   }
 
   Future<void> _simpanMapping() async {
-    // 1. Validasi Dasar
+    // 1. Validasi Input Dasar
     if (_cpmkController.text.isEmpty || selectedCplIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Isi CPMK dan pilih minimal 1 CPL!")),
+      );
+      return;
+    }
+
+    // 2. Validasi Total Bobot (Harus 100%)
+    double total = _calculateTotalWeight();
+    if (total != 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Total bobot harus pas 100%! (Sekarang: $total%)"),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -86,52 +96,42 @@ class _MappingPageState extends State<MappingPage> {
     try {
       final rpsId = widget.rpsData['id'].toString();
 
-      // --- LOGIKA PERHITUNGAN BOBOT OTOMATIS (AGAR TIDAK 0%) ---
-      // Kita bagi 100 dengan jumlah CPL yang dipilih
-      // Misal pilih 2 CPL, maka masing-masing 50%
-      int bobotPerCpl = (100 / selectedCplIds.length).floor(); 
-
-      // Susun data mapping lengkap dengan bobotnya
-      List<Map<String, dynamic>> mappingData = selectedCplIds.map((id) => {
-        'cpl_id': id,
-        'bobot': bobotPerCpl,
+      // --- LOGIKA MENGAMBIL NILAI DARI TEXTFIELD ---
+      List<Map<String, dynamic>> mappingData = selectedCplIds.map((id) {
+        // Ambil angka dari controller, default ke 0 jika gagal parse
+        int bobotInput = int.tryParse(_weightControllers[id]?.text ?? "0") ?? 0;
+        return {
+          'cpl_id': id,
+          'bobot': bobotInput,
+        };
       }).toList();
 
       if (widget.isRevision) {
         await _rpsService.deleteExistingMapping(rpsId);
       }
 
-      // 2. Panggil Service dengan data yang sudah ada bobotnya
+      // 3. Simpan ke Database
       await _rpsService.saveMappingWithWeights(
         rpsId: rpsId,
         deskripsi: _cpmkController.text.trim(),
-        mappingData: mappingData, // Kirim list yang sudah ada bobotnya
+        mappingData: mappingData, 
       );
 
-      // --- Lanjutan kode kamu (Tandai revisi selesai, SnackBar, dsb) ---
       if (widget.isRevision) {
         await _rpsService.tandaiRevisiSelesai(rpsId);
       }
 
       if (mounted) {
-        _cpmkController.clear();
-        setState(() => selectedCplIds = List<String>.from(standarCplIds));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Mapping OBE Berhasil Disimpan!"), backgroundColor: Colors.green),
         );
+        Navigator.pop(context); // Kembali setelah berhasil
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
-  }
-
-  // ignore: unused_element
-  void _showSnackBar(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color),
-    );
   }
 
   @override
@@ -155,19 +155,19 @@ class _MappingPageState extends State<MappingPage> {
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: currentTotal == 100 ? Colors.green.shade50 : Colors.blue.shade50,
+                color: currentTotal == 100 ? Colors.green.shade50 : Colors.red.shade50,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: currentTotal == 100 ? Colors.green : Colors.blue),
+                border: Border.all(color: currentTotal == 100 ? Colors.green : Colors.red),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text("Total Bobot Terisi:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text("$currentTotal / 100%", 
+                  Text("${currentTotal.toInt()} / 100%", 
                     style: TextStyle(
                       fontSize: 18, 
                       fontWeight: FontWeight.bold, 
-                      color: currentTotal == 100 ? Colors.green : Colors.blue.shade800
+                      color: currentTotal == 100 ? Colors.green : Colors.red
                     )
                   ),
                 ],
@@ -179,7 +179,7 @@ class _MappingPageState extends State<MappingPage> {
             TextField(
               controller: _cpmkController,
               maxLines: 3,
-              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: "Deskripsi materi..."),
+              decoration: const InputDecoration(border: OutlineInputBorder(), hintText: "Misal: Mahasiswa mampu memahami konsep dasar..."),
             ),
             const SizedBox(height: 20),
             const Text("2. Pilih CPL & Tentukan Bobot:", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -190,6 +190,10 @@ class _MappingPageState extends State<MappingPage> {
               
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: isSelected ? Colors.blue : Colors.transparent),
+                  borderRadius: BorderRadius.circular(8)
+                ),
                 child: Column(
                   children: [
                     CheckboxListTile(
@@ -216,11 +220,12 @@ class _MappingPageState extends State<MappingPage> {
                           controller: _weightControllers[cplId],
                           keyboardType: TextInputType.number,
                           decoration: const InputDecoration(
-                            labelText: "Bobot (%)",
+                            labelText: "Masukkan Bobot Untuk CPL Ini (%)",
                             prefixIcon: Icon(Icons.percent, size: 16),
                             border: OutlineInputBorder(),
+                            isDense: true,
                           ),
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) => setState(() {}), // Update indikator total
                         ),
                       ),
                   ],
@@ -237,7 +242,7 @@ class _MappingPageState extends State<MappingPage> {
                   foregroundColor: Colors.white,
                 ),
                 onPressed: isLoading ? null : _simpanMapping,
-                child: const Text("SIMPAN MAPPING OBE"),
+                child: Text(isLoading ? "MENYIMPAN..." : "SIMPAN MAPPING OBE"),
               ),
             ),
           ],
