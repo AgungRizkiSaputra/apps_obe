@@ -474,4 +474,35 @@ class RpsService {
       throw 'Gagal memperbarui rencana: $e';
     }
   }
+
+  // 25. Fungsi untuk menambahkan dosen baru (Admin)
+  Future<void> tambahDosenBaru({
+    required String email,
+    required String password,
+    required String nama,
+  }) async {
+    try {
+      // 1. Daftarkan ke Supabase Auth
+      final AuthResponse res = await supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'nama': nama,
+          'role': 'dosen', // Tandai sebagai dosen
+        },
+      );
+
+      // 2. Jika berhasil, pastikan data masuk ke tabel 'users' kita
+      if (res.user != null) {
+        await supabase.from('users').insert({
+          'id': res.user!.id,
+          'email': email,
+          'nama': nama,
+          'role': 'dosen',
+        });
+      }
+    } catch (e) {
+      throw 'Gagal mendaftarkan dosen: $e';
+    }
+  }
 }

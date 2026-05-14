@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -13,15 +12,14 @@ class PdfHelper {
     final pdf = pw.Document();
     final supabase = Supabase.instance.client;
 
-    // 1. DATA DOSEN (PASTIKAN DIAMBIL DARI rps['users'])
-    final String? signatureUrl = rps['users']?['signature_url'];
-    final String namaDosen = rps['users']?['nama'] ?? 'Dosen Pengampu';
+    // --- 1. AMBIL DATA DOSEN DARI PARAMETER ---
     final listPertemuan = (rps['rps_detail'] as List?) ?? [];
 
-    // 2. DATA KAPRODI (AMBIL DARI DATABASE)
+    // --- 2. AMBIL DATA KAPRODI DAN DOSEN DARI DATABASE (QUERY TERPISAH) ---
     String namaKaprodi = "Ketua Program Studi";
-    String? kaprodiSigUrl;
-    
+    String? signatureUrlKaprodi;
+
+
     try {
       final kaprodiData = await supabase
           .from('users')
@@ -31,25 +29,66 @@ class PdfHelper {
       
       if (kaprodiData != null) {
         namaKaprodi = kaprodiData['nama'];
-        kaprodiSigUrl = kaprodiData['signature_url'];
+        signatureUrlKaprodi = kaprodiData['signature_url'];
       }
     } catch (e) {
       print("Gagal mengambil data kaprodi: $e");
     }
+    
 
-    pw.ImageProvider? signatureImage; // TTD Dosen
-    pw.ImageProvider? kaprodiSignatureImage; // TTD Kaprodi
+    String namaDosen = "Dosen Pengampu";
+    String? signatureUrlDosen;
 
-    // --- DOWNLOAD TANDA TANGAN DOSEN (LOGIKA DISAMAKAN DENGAN KAPRODI) ---
-    if (signatureUrl != null && signatureUrl.isNotEmpty) {
-      print("Mencoba download TTD Dosen dari: $signatureUrl");
-      signatureImage = await _downloadImage(signatureUrl);
+    try {
+      // CARA PALING PASTI: Ambil data dari user yang sedang login (Session)
+      final currentUser = supabase.auth.currentUser;
+      
+      if (currentUser != null) {
+        // Ambil data detail (nama & ttd) dari tabel users berdasarkan ID yang login
+        final userData = await supabase
+            .from('users')
+            .select('nama, signature_url')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        if (userData != null) {
+          namaDosen = userData['nama'] ?? 'Dosen Pengampu';
+          signatureUrlDosen = userData['signature_url'];
+          print("DEBUG: Berhasil panggil data dosen login: $namaDosen");
+        }
+      } else {
+        // Jika tidak ada session login (jarang terjadi), fallback ke id_user rps
+        final String? idDariRps = rps['id_user']?.toString();
+        if (idDariRps != null) {
+          final rpsOwnerData = await supabase
+              .from('users')
+              .select('nama, signature_url')
+              .eq('id', idDariRps)
+              .maybeSingle();
+          if (rpsOwnerData != null) {
+            namaDosen = rpsOwnerData['nama'] ?? 'Dosen Pengampu';
+            signatureUrlDosen = rpsOwnerData['signature_url'];
+          }
+        }
+      }
+    } catch (e) {
+      print("DEBUG: Error total pengambilan data: $e");
     }
 
-    // --- DOWNLOAD TANDA TANGAN KAPRODI ---
-    if (kaprodiSigUrl != null && kaprodiSigUrl.isNotEmpty) {
-      print("Mencoba download TTD Kaprodi dari: $kaprodiSigUrl");
-      kaprodiSignatureImage = await _downloadImage(kaprodiSigUrl);
+    // --- 3. PROSES DOWNLOAD GAMBAR (LOGIKA DISAMAKAN PERSIS) ---
+    pw.ImageProvider? imageDosen;
+    pw.ImageProvider? imageKaprodi;
+
+    // Download TTD Dosen
+    if (signatureUrlDosen != null && signatureUrlDosen.isNotEmpty) {
+      print("Mencoba download TTD Dosen: $signatureUrlDosen");
+      imageDosen = await _downloadImage(signatureUrlDosen);
+    }
+
+    // Download TTD Kaprodi
+    if (signatureUrlKaprodi != null && signatureUrlKaprodi.isNotEmpty) {
+      print("Mencoba download TTD Kaprodi: $signatureUrlKaprodi");
+      imageKaprodi = await _downloadImage(signatureUrlKaprodi);
     }
 
     pdf.addPage(
@@ -164,36 +203,52 @@ class PdfHelper {
 
             pw.SizedBox(height: 40),
 
-            // 5. TANDA TANGAN (KAPRODI DI KIRI, DOSEN DI KANAN)
+            // --- 5. TANDA TANGAN (POSISI SEJAJAR) ---
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // KOLOM KAPRODI
+                // KOLOM KAPRODI (KIRI)
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Text("Menyetujui,", style: const pw.TextStyle(fontSize: 10)),
                     pw.Text("Ketua Program Studi,", style: const pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 5),
-                    kaprodiSignatureImage != null
-                        ? pw.Container(height: 50, width: 90, child: pw.Image(kaprodiSignatureImage))
-                        : pw.SizedBox(height: 50),
+                    pw.Container(
+                      height: 60,
+                      width: 100,
+                      alignment: pw.Alignment.center,
+                      child: imageKaprodi != null
+                          ? pw.Image(
+                              imageKaprodi,
+                              fit: pw.BoxFit.contain,
+                            )
+                          : pw.SizedBox(),
+                    ),
                     pw.Text(namaKaprodi,
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),
                   ],
                 ),
 
-                // KOLOM DOSEN (SEKARANG DISAMAKAN LOGIKANYA DENGAN KAPRODI)
+                // KOLOM DOSEN (KANAN)
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Text("Tangerang, ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}", style: const pw.TextStyle(fontSize: 10)),
                     pw.Text("Dosen Pengampu,", style: const pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 5),
-                    signatureImage != null
-                        ? pw.Container(height: 50, width: 90, child: pw.Image(signatureImage))
-                        : pw.SizedBox(height: 50),
+                    pw.Container(
+                      height: 60,
+                      width: 100,
+                      alignment: pw.Alignment.center,
+                      child: imageDosen != null
+                          ? pw.Image(
+                              imageDosen,
+                              fit: pw.BoxFit.contain,
+                            )
+                          : pw.SizedBox(),
+                    ),
                     pw.Text(namaDosen,
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),
                   ],
@@ -208,14 +263,14 @@ class PdfHelper {
     await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
   }
 
-  // --- HELPER DOWNLOAD GAMBAR (SAMA UNTUK SEMUA ROLE) ---
+  // --- HELPER DOWNLOAD (DIGUNAKAN OLEH KEDUANYA) ---
   static Future<pw.ImageProvider?> _downloadImage(String url) async {
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         return pw.MemoryImage(response.bodyBytes);
       } else {
-        print("Gagal download gambar dari $url. Status: ${response.statusCode}");
+        print("Gagal download image dari $url. Status: ${response.statusCode}");
       }
     } catch (e) {
       print("Error download image: $e");
