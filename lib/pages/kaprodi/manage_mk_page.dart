@@ -10,46 +10,48 @@ class ManageMkPage extends StatefulWidget {
 
 class _ManageMkPageState extends State<ManageMkPage> {
   final rpsService = RpsService();
+  final primaryColor = Colors.indigo.shade900;
   
-  // Controller untuk form input
+  // Controller untuk form input (TIDAK DIUBAH)
   final _kodeController = TextEditingController();
   final _namaController = TextEditingController();
   final _sksController = TextEditingController();
   final _semesterController = TextEditingController();
 
-  // Fungsi Refresh Data
+  // Fungsi Refresh Data (TIDAK DIUBAH)
   void _refresh() => setState(() {});
 
-  // --- LOGIKA VALIDASI INPUT (FITUR NOMOR 4) ---
+  // --- LOGIKA VALIDASI INPUT (TETAP UTUH) ---
   bool _isValid() {
     if (_kodeController.text.trim().isEmpty || _namaController.text.trim().isEmpty) {
       _showWarning("Kode dan Nama MK wajib diisi!");
       return false;
     }
-    
     int? sks = int.tryParse(_sksController.text);
     int? semester = int.tryParse(_semesterController.text);
-    
     if (sks == null || sks <= 0 || sks > 8) {
       _showWarning("SKS harus berupa angka antara 1 - 8!");
       return false;
     }
-    
     if (semester == null || semester <= 0 || semester > 14) {
       _showWarning("Semester harus berupa angka logis (1 - 14)!");
       return false;
     }
-    
     return true;
   }
 
   void _showWarning(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.orange, behavior: SnackBarBehavior.floating)
+      SnackBar(
+        content: Text(msg), 
+        backgroundColor: Colors.orange, 
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      )
     );
   }
 
-  // --- FUNGSI TAMBAH DATA ---
+  // --- FUNGSI TAMBAH DATA (LOGIKA UTUH) ---
   void _showAddDialog() {
     _clearControllers();
     showDialog(
@@ -75,7 +77,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- FUNGSI EDIT DATA ---
+  // --- FUNGSI EDIT DATA (LOGIKA UTUH) ---
   void _showEditDialog(Map<String, dynamic> mk) {
     _kodeController.text = mk['kode_mk']?.toString() ?? '';
     _namaController.text = mk['nama_mk']?.toString() ?? '';
@@ -106,42 +108,24 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- WIDGET DIALOG REUSABLE ---
+  // --- WIDGET DIALOG REUSABLE (UI DIPOLEH) ---
   Widget _buildMkDialog({required String title, required String buttonText, required VoidCallback onPressed}) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _kodeController, 
-              decoration: const InputDecoration(labelText: "Kode MK", hintText: "Contoh: MK001")
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _namaController, 
-              decoration: const InputDecoration(labelText: "Nama Mata Kuliah")
-            ),
-            const SizedBox(height: 10),
+            _buildDialogField(_kodeController, "Kode MK", Icons.qr_code, "Contoh: MK001"),
+            const SizedBox(height: 15),
+            _buildDialogField(_namaController, "Nama Mata Kuliah", Icons.book, ""),
+            const SizedBox(height: 15),
             Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _sksController, 
-                    decoration: const InputDecoration(labelText: "SKS"), 
-                    keyboardType: TextInputType.number
-                  ),
-                ),
+                Expanded(child: _buildDialogField(_sksController, "SKS", Icons.analytics, "", isNumber: true)),
                 const SizedBox(width: 15),
-                Expanded(
-                  child: TextField(
-                    controller: _semesterController, 
-                    decoration: const InputDecoration(labelText: "Semester"), 
-                    keyboardType: TextInputType.number
-                  ),
-                ),
+                Expanded(child: _buildDialogField(_semesterController, "Sem.", Icons.calendar_view_day, "", isNumber: true)),
               ],
             ),
           ],
@@ -150,11 +134,30 @@ class _ManageMkPageState extends State<ManageMkPage> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+          ),
           onPressed: onPressed, 
           child: Text(buttonText)
         ),
       ],
+    );
+  }
+
+  Widget _buildDialogField(TextEditingController controller, String label, IconData icon, String hint, {bool isNumber = false}) {
+    return TextField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 20),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+      ),
     );
   }
 
@@ -169,7 +172,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.green)
+        SnackBar(content: Text(message), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)
       );
       _refresh();
     }
@@ -178,7 +181,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
   void _handleError(Object e) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -186,72 +189,119 @@ class _ManageMkPageState extends State<ManageMkPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Data Mata Kuliah")),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: rpsService.getAllMataKuliah(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          
-          final listMk = snapshot.data ?? [];
-          if (listMk.isEmpty) return const Center(child: Text("Belum ada data mata kuliah."));
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text("Data Mata Kuliah", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Aksen Header
+          Container(
+            height: 20,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: rpsService.getAllMataKuliah(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                
+                final listMk = snapshot.data ?? [];
+                if (listMk.isEmpty) return const Center(child: Text("Belum ada data mata kuliah."));
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: listMk.length,
-            itemBuilder: (context, index) {
-              final mk = listMk[index];
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text(mk['sks']?.toString() ?? '0', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
-                  ),
-                  title: Text(mk['nama_mk'] ?? 'Tanpa Nama', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Kode: ${mk['kode_mk'] ?? '-'} | Semester: ${mk['semester'] ?? '-'}"),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditDialog(mk)),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text("Hapus MK?"),
-                              content: const Text("Data MK tidak bisa dihapus jika sedang digunakan di RPS aktif."),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
-                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Hapus", style: TextStyle(color: Colors.red))),
-                              ],
-                            ),
-                          );
-                          if (confirm == true) {
-                            try {
-                              await rpsService.deleteMataKuliah(mk['id']);
-                              _handleSuccess("Berhasil menghapus mata kuliah");
-                            } catch (e) {
-                              _handleError(e);
-                            }
-                          }
-                        },
+                return ListView.builder(
+                  padding: const EdgeInsets.all(15),
+                  itemCount: listMk.length,
+                  itemBuilder: (context, index) {
+                    final mk = listMk[index];
+                    return _buildMkCard(mk);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddDialog, 
+        backgroundColor: primaryColor,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("TAMBAH MK", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildMkCard(Map<String, dynamic> mk) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+        leading: CircleAvatar(
+          radius: 25,
+          backgroundColor: primaryColor.withOpacity(0.1),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(mk['sks']?.toString() ?? '0', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
+              const Text("SKS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        title: Text(mk['nama_mk'] ?? 'Tanpa Nama', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text("Kode: ${mk['kode_mk'] ?? '-'}  •  Semester: ${mk['semester'] ?? '-'}", style: const TextStyle(fontSize: 12)),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(icon: Icon(Icons.edit_outlined, color: Colors.blue.shade700, size: 22), onPressed: () => _showEditDialog(mk)),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: const Text("Hapus MK?"),
+                    content: const Text("Data MK tidak bisa dihapus jika sedang digunakan di RPS aktif."),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () => Navigator.pop(context, true), 
+                        child: const Text("Hapus", style: TextStyle(color: Colors.white))
                       ),
                     ],
                   ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog, 
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
+                );
+                if (confirm == true) {
+                  try {
+                    await rpsService.deleteMataKuliah(mk['id']);
+                    _handleSuccess("Berhasil menghapus mata kuliah");
+                  } catch (e) {
+                    _handleError(e);
+                  }
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

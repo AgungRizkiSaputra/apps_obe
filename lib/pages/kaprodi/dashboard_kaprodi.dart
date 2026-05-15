@@ -20,8 +20,13 @@ class DashboardKaprodi extends StatefulWidget {
 class _DashboardKaprodiState extends State<DashboardKaprodi> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
+  final primaryColor = Colors.indigo.shade900; 
+  
   late Future<List<Map<String, dynamic>>> _reviewFuture;
   Map<String, dynamic> _stats = {'pending': 0, 'approved': 0, 'revisi': 0, 'mk': 0, 'cpl': 0};
+  
+  // --- TAMBAHAN STATE SEARCH ---
+  String _searchQuery = "";
 
   @override
   void initState() {
@@ -30,6 +35,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     _refreshData();
   }
 
+  // --- LOGIKA FETCH & SORT (UTUH) ---
   Future<List<Map<String, dynamic>>> _fetchAndSortRps() async {
     final list = await rpsService.getRpsForKaprodi();
     list.sort((a, b) {
@@ -42,6 +48,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     return list;
   }
 
+  // --- LOGIKA REFRESH (UTUH) ---
   void _refreshData() async {
     try {
       final dataStats = await rpsService.getKaprodiStats();
@@ -56,14 +63,11 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     }
   }
 
+  // --- LOGIKA LOGOUT (UTUH) ---
   Future<void> _handleLogout() async {
     await Supabase.instance.client.auth.signOut();
     if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-        (route) => false,
-      );
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginPage()), (route) => false);
     }
   }
 
@@ -83,10 +87,8 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.blue.shade800;
-
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         backgroundColor: primaryColor,
         elevation: 0,
@@ -95,20 +97,13 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Selamat Datang, Kaprodi", style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text("Selamat Datang, Kaprodi", style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7))),
             Text(
               user?.userMetadata?['nama'] ?? "Admin Prodi",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _handleLogout,
-            tooltip: "Keluar Akun",
-          ),
-        ],
       ),
       drawer: _buildDrawer(context),
       body: RefreshIndicator(
@@ -116,86 +111,69 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         child: ListView(
           children: [
             Container(
-              height: 20,
+              height: 40,
               decoration: BoxDecoration(
                 color: primaryColor,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(25),
-                  bottomRight: Radius.circular(25),
-                ),
+                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
               ),
             ),
+            
             _buildChartSection(),
+            
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  _buildStatCard("Perlu Review", _stats['pending'].toString(), Colors.blue),
-                  _buildStatCard("Total MK", _stats['mk'].toString(), Colors.green),
-                  _buildStatCard("Total CPL", _stats['cpl'].toString(), Colors.orange),
+                  _buildStatCard("Review", _stats['pending'].toString(), Colors.orange),
+                  _buildStatCard("Mata Kuliah", _stats['mk'].toString(), Colors.blue),
+                  _buildStatCard("CPL Prodi", _stats['cpl'].toString(), Colors.purple),
                 ],
               ),
             ),
+
+            // --- TAMBAHAN SEARCH BAR ---
+            _buildSearchBar(),
+            
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 25, 20, 10),
-              child: Text("Daftar RPS Masuk", 
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.assignment_late_rounded, size: 20, color: Colors.black54),
+                  SizedBox(width: 8),
+                  Text("Daftar RPS Masuk", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
             ),
+
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _reviewFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: CircularProgressIndicator(),
-                  ));
+                  return const Center(child: Padding(padding: EdgeInsets.all(40.0), child: CircularProgressIndicator()));
                 }
                 final listReview = snapshot.data ?? [];
-                if (listReview.isEmpty) {
-                  return const Center(child: Padding(
-                    padding: EdgeInsets.all(30.0),
-                    child: Text("Belum ada RPS yang masuk."),
-                  ));
+                
+                // --- LOGIKA FILTER SEARCH ---
+                final filteredList = listReview.where((rps) {
+                  final namaMk = (rps['mata_kuliah']?['nama_mk'] ?? '').toString().toLowerCase();
+                  final namaDosen = (rps['users']?['nama'] ?? '').toString().toLowerCase();
+                  return namaMk.contains(_searchQuery) || namaDosen.contains(_searchQuery);
+                }).toList();
+
+                if (filteredList.isEmpty) {
+                  return _buildEmptyState();
                 }
+
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  itemCount: listReview.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredList.length,
                   itemBuilder: (context, index) {
-                    final rps = listReview[index];
+                    final rps = filteredList[index];
                     final status = rps['status'] ?? '';
                     final statusColor = _getStatusColor(status);
-                    return Card(
-                      elevation: 1,
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      child: ListTile(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rps['id'].toString(), isKaprodi: true)),
-                          ).then((_) => _refreshData());
-                        },
-                        leading: CircleAvatar(
-                          backgroundColor: statusColor.withOpacity(0.1),
-                          child: Icon(Icons.description, color: statusColor, size: 20),
-                        ),
-                        title: Text(
-                          rps['mata_kuliah']?['nama_mk'] ?? 'Mata Kuliah', 
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Dosen: ${rps['users']?['nama'] ?? '-'}", style: const TextStyle(fontSize: 12)),
-                            const SizedBox(height: 5),
-                            _buildSmallStatusChip(status, statusColor),
-                          ],
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
-                      ),
-                    );
+                    return _buildRpsListItem(rps, status, statusColor);
                   },
                 );
               },
@@ -207,32 +185,44 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  Widget _buildSmallStatusChip(String status, Color color) {
+  // --- WIDGET SEARCH BAR ---
+  Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      height: 50,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Text(
-        _getStatusLabel(status),
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+      child: TextField(
+        onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+        decoration: InputDecoration(
+          hintText: "Cari Mata Kuliah atau Dosen...",
+          hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+          border: InputBorder.none,
+          icon: Icon(Icons.search_rounded, color: primaryColor),
+        ),
       ),
     );
   }
+
+  // --- UI COMPONENTS LAINNYA (UTUH DARI POLESAN SEBELUMNYA) ---
 
   Widget _buildStatCard(String label, String count, Color color) {
     return Expanded(
       child: Card(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade100)),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 15),
           child: Column(
             children: [
-              Text(count, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+              Text(count, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
               const SizedBox(height: 4),
-              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -242,47 +232,50 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
 
   Widget _buildChartSection() {
     double total = ((_stats['approved'] ?? 0) + (_stats['pending'] ?? 0) + (_stats['revisi'] ?? 0)).toDouble();
-    return Container(
-      height: 200,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: total == 0 
-            ? const Center(child: Text("Belum ada data", style: TextStyle(fontSize: 12)))
-            : PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 35,
-                  sections: [
-                    PieChartSectionData(color: Colors.green, value: (_stats['approved'] ?? 0).toDouble(), title: '', radius: 45),
-                    PieChartSectionData(color: Colors.orange, value: (_stats['pending'] ?? 0).toDouble(), title: '', radius: 45),
-                    PieChartSectionData(color: Colors.red, value: (_stats['revisi'] ?? 0).toDouble(), title: '', radius: 45),
-                  ],
+    return Transform.translate(
+      offset: const Offset(0, -30),
+      child: Container(
+        height: 180,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: total == 0 
+              ? const Center(child: Text("Belum ada data", style: TextStyle(fontSize: 12, color: Colors.grey)))
+              : PieChart(
+                  PieChartData(
+                    sectionsSpace: 4,
+                    centerSpaceRadius: 35,
+                    sections: [
+                      PieChartSectionData(color: Colors.green.shade400, value: (_stats['approved'] ?? 0).toDouble(), title: '', radius: 45),
+                      PieChartSectionData(color: Colors.orange.shade400, value: (_stats['pending'] ?? 0).toDouble(), title: '', radius: 45),
+                      PieChartSectionData(color: Colors.red.shade400, value: (_stats['revisi'] ?? 0).toDouble(), title: '', radius: 45),
+                    ],
+                  ),
                 ),
-              ),
-          ),
-          const SizedBox(width: 20),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLegend(Colors.green, "Disetujui"),
-              const SizedBox(height: 8),
-              _buildLegend(Colors.orange, "Menunggu"),
-              const SizedBox(height: 8),
-              _buildLegend(Colors.red, "Revisi"),
-              const Divider(height: 20),
-              Text("Total: ${total.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            ],
-          )
-        ],
+            ),
+            const SizedBox(width: 20),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLegend(Colors.green.shade400, "Disetujui"),
+                const SizedBox(height: 8),
+                _buildLegend(Colors.orange.shade400, "Menunggu"),
+                const SizedBox(height: 8),
+                _buildLegend(Colors.red.shade400, "Revisi"),
+                const Divider(height: 25),
+                Text("Total RPS: ${total.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
@@ -290,89 +283,116 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
   Widget _buildLegend(Color color, String text) {
     return Row(
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 8),
-        Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        Text(text, style: const TextStyle(fontSize: 11, color: Colors.black54)),
       ],
+    );
+  }
+
+  Widget _buildRpsListItem(Map<String, dynamic> rps, String status, Color statusColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+      ),
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rps['id'].toString(), isKaprodi: true)),
+          ).then((_) => _refreshData());
+        },
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        leading: CircleAvatar(
+          backgroundColor: statusColor.withOpacity(0.1),
+          child: Icon(Icons.description_outlined, color: statusColor, size: 22),
+        ),
+        title: Text(
+          rps['mata_kuliah']?['nama_mk'] ?? 'Mata Kuliah', 
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Oleh: ${rps['users']?['nama'] ?? '-'}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 8),
+            _buildSmallStatusChip(status, statusColor),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildSmallStatusChip(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        _getStatusLabel(status),
+        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          children: [
+            Icon(Icons.inbox_rounded, size: 50, color: Colors.grey.shade300),
+            const SizedBox(height: 10),
+            const Text("Tidak ada antrean RPS", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topRight: Radius.circular(30), bottomRight: Radius.circular(30))),
       child: Column(
         children: [
-          // HEADER DRAWER BISA DIKLIK KE PROFIL
-          GestureDetector(
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileKaprodiPage())).then((_) => _refreshData());
-            },
-            child: UserAccountsDrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue.shade800),
-              currentAccountPicture: CircleAvatar(
+          UserAccountsDrawerHeader(
+            decoration: BoxDecoration(color: primaryColor),
+            currentAccountPicture: Container(
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+              child: CircleAvatar(
                 backgroundColor: Colors.white,
-                backgroundImage: user?.userMetadata?['avatar_url'] != null
-                    ? NetworkImage(user!.userMetadata?['avatar_url'])
-                    : null,
-                child: user?.userMetadata?['avatar_url'] == null
-                    ? const Icon(Icons.admin_panel_settings, color: Colors.blue, size: 40)
-                    : null,
+                backgroundImage: user?.userMetadata?['avatar_url'] != null ? NetworkImage(user!.userMetadata?['avatar_url']) : null,
+                child: user?.userMetadata?['avatar_url'] == null ? Icon(Icons.admin_panel_settings, color: primaryColor, size: 40) : null,
               ),
-              accountName: Text(user?.userMetadata?['nama'] ?? "Nama Kaprodi"),
-              accountEmail: Text(user?.email ?? ""),
             ),
+            accountName: Text(user?.userMetadata?['nama'] ?? "Kaprodi", style: const TextStyle(fontWeight: FontWeight.bold)),
+            accountEmail: Text(user?.email ?? ""),
           ),
-          ListTile(
-            leading: const Icon(Icons.book, color: Colors.blue),
-            title: const Text("Data Mata Kuliah"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData());
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.assignment, color: Colors.green),
-            title: const Text("Data CPL Prodi"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData());
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people, color: Colors.orange),
-            title: const Text("Data Dosen"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.account_tree, color: Colors.purple),
-            title: const Text("Set Standar CPL MK"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()));
-            },
-          ),
+          _buildDrawerItem(Icons.book_outlined, "Data Mata Kuliah", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData())),
+          _buildDrawerItem(Icons.assignment_turned_in_outlined, "Data CPL Prodi", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData())),
+          _buildDrawerItem(Icons.people_outline, "Data Dosen", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()))),
+          _buildDrawerItem(Icons.account_tree_outlined, "Set Standar CPL MK", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()))),
           const Divider(),
-          // MENU PROFIL SAYA
-          ListTile(
-            leading: const Icon(Icons.person_pin, color: Colors.indigo),
-            title: const Text("Profil Saya"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileKaprodiPage())).then((_) => _refreshData());
-            },
-          ),
+          _buildDrawerItem(Icons.person_outline, "Profil Saya", Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileKaprodiPage())).then((_) => _refreshData())),
           const Spacer(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("Keluar"),
-            onTap: _handleLogout,
-          ),
-          const SizedBox(height: 10),
+          _buildDrawerItem(Icons.logout_rounded, "Keluar", Colors.red, _handleLogout),
+          const SizedBox(height: 20),
         ],
       ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, Color color, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
     );
   }
 }

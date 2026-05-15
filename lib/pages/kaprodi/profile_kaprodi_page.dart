@@ -15,11 +15,12 @@ class ProfileKaprodiPage extends StatefulWidget {
 class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
+  final primaryColor = Colors.indigo.shade900;
   
   final TextEditingController _namaController = TextEditingController();
   final SignatureController _sigController = SignatureController(
     penStrokeWidth: 3, 
-    penColor: Colors.blue.shade900, 
+    penColor: Colors.indigo.shade900, 
     exportBackgroundColor: Colors.white,
   );
 
@@ -41,7 +42,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     super.dispose();
   }
 
-  // --- LOGIKA UPLOAD FOTO ---
+  // --- LOGIKA UPLOAD FOTO (UTUH) ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
@@ -59,75 +60,77 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     try {
       final newUrl = await rpsService.uploadAvatar(user!.id, bytes, ext);
       setState(() => _avatarUrl = newUrl);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Foto profil Kaprodi diperbarui!"), backgroundColor: Colors.green),
-        );
-      }
+      if (mounted) _showNotif("Foto profil Kaprodi diperbarui!", Colors.green);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) _showNotif("Error: $e", Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- LOGIKA UPDATE NAMA ---
+  // --- LOGIKA UPDATE NAMA (UTUH) ---
   Future<void> _handleUpdateProfile() async {
     if (_namaController.text.isEmpty) return;
     setState(() => _isLoading = true);
     try {
       await rpsService.updateProfile(user!.id, _namaController.text);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Nama Kaprodi berhasil diperbarui!"), backgroundColor: Colors.green));
+      if (mounted) _showNotif("Nama Kaprodi berhasil diperbarui!", Colors.green);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) _showNotif("Error: $e", Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- FUNGSI GANTI PASSWORD ---
+  // --- FUNGSI GANTI PASSWORD (UTUH) ---
   void _showChangePasswordDialog() {
     final passController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("Ganti Password Akun"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Ganti Password Akun", style: TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: passController,
           obscureText: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: "Minimal 6 karakter",
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.lock_outline),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            prefixIcon: const Icon(Icons.lock_outline),
+            filled: true,
+            fillColor: Colors.grey.shade50,
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () async {
               if (passController.text.length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password terlalu pendek!")));
+                _showNotif("Password terlalu pendek!", Colors.orange);
                 return;
               }
               try {
                 await rpsService.changePassword(passController.text);
                 if (mounted) {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password berhasil diperbarui!"), backgroundColor: Colors.green));
+                  _showNotif("Password berhasil diperbarui!", Colors.green);
                 }
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                if (mounted) _showNotif("Error: $e", Colors.red);
               }
             },
-            child: const Text("Simpan"),
+            child: const Text("Simpan", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // --- LOGIKA SIMPAN TTD ---
+  // --- LOGIKA SIMPAN TTD (UTUH) ---
   Future<void> _saveSignature() async {
     if (_sigController.isEmpty) return;
     setState(() => _isLoading = true);
@@ -135,23 +138,31 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
       final Uint8List? data = await _sigController.toPngBytes();
       if (data != null) {
         await rpsService.uploadSignature(user!.id, data);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tanda tangan Kaprodi disimpan!"), backgroundColor: Colors.green));
+        if (mounted) _showNotif("Tanda tangan Kaprodi disimpan!", Colors.green);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      if (mounted) _showNotif("Error: $e", Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // --- HELPER NOTIFIKASI ---
+  void _showNotif(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.indigo.shade900; 
-
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text("Profil Kaprodi"),
+        title: const Text("Profil Kaprodi", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -160,6 +171,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // --- HEADER BG ---
             Container(
               height: 100,
               width: double.infinity,
@@ -169,38 +181,35 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text("Kaprodi: ${user?.email ?? "-"}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                child: Text("Otoritas: ${user?.email ?? "-"}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
               ),
             ),
 
+            // --- AVATAR SECTION ---
             Transform.translate(
               offset: const Offset(0, -50),
               child: Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle, 
-                        border: Border.all(color: Colors.white, width: 5), 
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 15)]
-                      ),
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.white,
-                        backgroundImage: _webImage != null
-                            ? MemoryImage(_webImage!) as ImageProvider
-                            : (_avatarUrl != null ? NetworkImage(_avatarUrl!) : null),
-                        child: (_webImage == null && _avatarUrl == null)
-                            ? Icon(Icons.person, size: 70, color: Colors.grey.shade400)
-                            : null,
-                      ),
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle, 
+                      border: Border.all(color: Colors.white, width: 5), 
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]
+                    ),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.grey.shade200,
+                      backgroundImage: _webImage != null
+                          ? MemoryImage(_webImage!) as ImageProvider
+                          : (_avatarUrl != null ? NetworkImage(_avatarUrl!) : null),
+                      child: (_webImage == null && _avatarUrl == null)
+                          ? Icon(Icons.admin_panel_settings, size: 70, color: Colors.grey.shade400)
+                          : null,
                     ),
                   ),
-                  Positioned(
-                    bottom: 5,
-                    right: 5,
+                  InkWell(
+                    onTap: _pickImage,
                     child: CircleAvatar(
                       radius: 18, 
                       backgroundColor: primaryColor, 
@@ -211,6 +220,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
               ),
             ),
             
+            // --- KARTU-KARTU INFORMASI ---
             _buildSectionCard(
               title: "Data Struktural",
               icon: Icons.account_balance_outlined,
@@ -220,7 +230,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                     controller: _namaController,
                     decoration: InputDecoration(
                       labelText: "Nama Kaprodi & Gelar",
-                      prefixIcon: const Icon(Icons.person),
+                      prefixIcon: Icon(Icons.person, color: primaryColor),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                       filled: true,
                       fillColor: Colors.grey.shade50,
@@ -234,7 +244,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor, 
                         foregroundColor: Colors.white, 
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                       ),
                       onPressed: _isLoading ? null : _handleUpdateProfile,
                       icon: const Icon(Icons.save),
@@ -250,8 +260,8 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
               icon: Icons.security,
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.password, color: Colors.orange),
-                title: const Text("Ubah Kata Sandi"),
+                leading: CircleAvatar(backgroundColor: Colors.orange.shade50, child: const Icon(Icons.key_rounded, color: Colors.orange)),
+                title: const Text("Ubah Kata Sandi", style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text("Amankan akun Kaprodi Anda"),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _showChangePasswordDialog,
@@ -259,13 +269,16 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
             ),
 
             _buildSectionCard(
-              title: "Tanda Tangan Kaprodi",
+              title: "Tanda Tangan Digital",
               icon: Icons.draw_outlined,
               child: Column(
                 children: [
+                  const Text("Tanda tangan ini digunakan untuk validasi akhir pada dokumen RPS OBE.", 
+                    style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
+                  const SizedBox(height: 15),
                   Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300), 
+                      border: Border.all(color: Colors.grey.shade200), 
                       borderRadius: BorderRadius.circular(15), 
                       color: Colors.white
                     ),
@@ -292,7 +305,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade900, 
+                            backgroundColor: Colors.green.shade700, 
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
                           ),
@@ -319,17 +332,17 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.indigo.shade900, size: 22),
+              Icon(icon, color: primaryColor, size: 22),
               const SizedBox(width: 12),
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ],
           ),
           const Divider(height: 30),
