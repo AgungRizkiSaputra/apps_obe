@@ -13,14 +13,12 @@ class CreateRpsPage extends StatefulWidget {
 class _CreateRpsPageState extends State<CreateRpsPage> {
   final _rpsService = RpsService();
   final _supabase = Supabase.instance.client;
+  final primaryColor = Colors.indigo.shade900;
 
-  // State untuk form
   String? selectedMkId;
   final tahunController = TextEditingController(text: "2025/2026");
   String selectedSemester = "Ganjil";
   bool isLoading = false;
-
-  // List mata kuliah dari database
   List<Map<String, dynamic>> listMk = [];
 
   @override
@@ -38,77 +36,78 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal load MK: $e"), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) _showCustomNotif("Gagal load MK: $e", Colors.red);
     }
   }
 
-  // --- FITUR NOMOR 4: FUNGSI VALIDASI INPUT ---
+  // --- LOGIKA VALIDASI (UTUH) ---
   bool _isInputValid() {
     if (selectedMkId == null) {
-      _showWarning("Silakan pilih Mata Kuliah terlebih dahulu!");
+      _showCustomNotif("Silakan pilih Mata Kuliah!", Colors.orange);
       return false;
     }
     if (tahunController.text.trim().isEmpty) {
-      _showWarning("Tahun Ajaran tidak boleh kosong!");
+      _showCustomNotif("Tahun Ajaran wajib diisi!", Colors.orange);
       return false;
     }
-    // Validasi format tahun (Harus ada garis miring, misal 2025/2026)
     if (!tahunController.text.contains('/')) {
-      _showWarning("Format Tahun Ajaran salah! Gunakan format: 2025/2026");
+      _showCustomNotif("Format Tahun salah (2025/2026)!", Colors.orange);
       return false;
     }
     return true;
   }
 
-  void _showWarning(String message) {
+  // --- POLESAN NOTIFIKASI BARU ---
+  void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.orange),
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              color == Colors.green ? Icons.check_circle_outline : Icons.info_outline,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating, // Biar melayang
+        margin: const EdgeInsets.all(20), // Jarak dari pinggir layar
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
+  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF BARU) ---
   Future<void> _handleSimpanRps() async {
-    // Jalankan validasi sebelum proses ke database
     if (!_isInputValid()) return;
-
     setState(() => isLoading = true);
-
     try {
       final userId = _supabase.auth.currentUser!.id;
-
-      // 1. Simpan data RPS
       final result = await _rpsService.createRps(
         mkId: selectedMkId!,
         dosenId: userId,
         tahunAjaran: tahunController.text.trim(),
         semester: selectedSemester,
       );
-
       if (mounted) {
-        // 2. Lanjut ke MappingPage
+        // Panggil Notif Keren
+        _showCustomNotif("Draft Tersimpan! Membuka Mapping OBE...", Colors.green);
+        
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => MappingPage(rpsData: result),
-          ),
-        );
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Draft Berhasil! Lanjut ke Mapping OBE."),
-            backgroundColor: Colors.green,
-          ),
+          MaterialPageRoute(builder: (context) => MappingPage(rpsData: result)),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) _showCustomNotif("Gagal: $e", Colors.red);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -117,75 +116,140 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Buat RPS Baru")),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text("Buat RPS Baru", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Pilih Mata Kuliah", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              hint: const Text("Klik untuk memilih..."),
-              value: selectedMkId,
-              items: listMk.map((mk) {
-                return DropdownMenuItem<String>(
-                  value: mk['id'].toString(),
-                  child: Text(mk['nama_mk']),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => selectedMkId = val),
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 20),
-
-            const Text("Tahun Ajaran", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: tahunController,
-              decoration: const InputDecoration(
-                hintText: "Contoh: 2025/2026",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            const Text("Semester", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: selectedSemester,
-              items: ["Ganjil", "Genap"].map((s) {
-                return DropdownMenuItem(value: s, child: Text(s));
-              }).toList(),
-              onChanged: (val) => setState(() => selectedSemester = val!),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 40),
-
-            SizedBox(
+            Container(
+              height: 60,
               width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
                 ),
-                onPressed: isLoading ? null : _handleSimpanRps,
-                child: isLoading 
-                  ? const SizedBox(
-                      height: 20, 
-                      width: 20, 
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                    ) 
-                  : const Text("Simpan Draft & Lanjut Mapping", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            Transform.translate(
+              offset: const Offset(0, -40),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(25),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel("Mata Kuliah", Icons.book_outlined),
+                      const SizedBox(height: 10),
+                      _buildDropdownMk(),
+                      const SizedBox(height: 25),
+                      _buildLabel("Tahun Ajaran", Icons.calendar_today_outlined),
+                      const SizedBox(height: 10),
+                      _buildTextFieldTahun(),
+                      const SizedBox(height: 25),
+                      _buildLabel("Semester", Icons.layers_outlined),
+                      const SizedBox(height: 10),
+                      _buildDropdownSemester(),
+                      const SizedBox(height: 40),
+                      _buildSubmitButton(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                "Langkah 1: Isi data dasar RPS sebelum masuk ke pemetaan CPMK & CPL.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- UI HELPERS ---
+  Widget _buildLabel(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: primaryColor),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      ],
+    );
+  }
+
+  Widget _buildDropdownMk() {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      hint: const Text("Pilih Mata Kuliah"),
+      value: selectedMkId,
+      items: listMk.map((mk) => DropdownMenuItem<String>(value: mk['id'].toString(), child: Text(mk['nama_mk'], overflow: TextOverflow.ellipsis))).toList(),
+      onChanged: (val) => setState(() => selectedMkId = val),
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+    );
+  }
+
+  Widget _buildTextFieldTahun() {
+    return TextField(
+      controller: tahunController,
+      decoration: InputDecoration(
+        hintText: "Contoh: 2025/2026",
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+    );
+  }
+
+  Widget _buildDropdownSemester() {
+    return DropdownButtonFormField<String>(
+      value: selectedSemester,
+      items: ["Ganjil", "Genap"].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+      onChanged: (val) => setState(() => selectedSemester = val!),
+      decoration: InputDecoration(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        onPressed: isLoading ? null : _handleSimpanRps,
+        child: isLoading 
+          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+          : const Text("SIMPAN & LANJUT MAPPING", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
       ),
     );
   }

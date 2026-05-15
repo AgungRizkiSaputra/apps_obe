@@ -11,9 +11,9 @@ class InputPertemuanPage extends StatefulWidget {
 
 class _InputPertemuanPageState extends State<InputPertemuanPage> {
   final rpsService = RpsService();
+  final primaryColor = Colors.indigo.shade900;
   bool _isLoading = true;
 
-  // List untuk menampung controller agar data tiap minggu tidak tertukar
   List<Map<String, dynamic>> _pertemuanData = [];
 
   @override
@@ -22,13 +22,11 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     _initData();
   }
 
+  // --- LOGIKA INIT DATA (UTUH) ---
   Future<void> _initData() async {
     try {
-      // Ambil data yang sudah ada di database
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
-      
       setState(() {
-        // Generate 14 minggu, jika ada data lama pakai data lama, jika tidak buat baru
         _pertemuanData = List.generate(14, (index) {
           final mingguKe = index + 1;
           final match = existingData.firstWhere(
@@ -51,6 +49,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     }
   }
 
+  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF POLESAN) ---
   Future<void> _simpanSemua() async {
     setState(() => _isLoading = true);
     try {
@@ -68,85 +67,195 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rencana Pertemuan Berhasil Disimpan!"), backgroundColor: Colors.green),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Text("Rencana Pertemuan Berhasil Disimpan!"),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal menyimpan: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text("Rencana Pertemuan (1-14)"),
-        backgroundColor: Colors.blue.shade800,
+        title: const Text("Rencana Pertemuan", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(onPressed: _simpanSemua, icon: const Icon(Icons.save))
-        ],
+        centerTitle: true,
+        elevation: 0,
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : ListView.builder(
-            padding: const EdgeInsets.all(10),
-            itemCount: _pertemuanData.length,
-            itemBuilder: (context, index) {
-              final item = _pertemuanData[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ExpansionTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade800,
-                    child: Text("${item['minggu_ke']}", style: const TextStyle(color: Colors.white)),
-                  ),
-                  title: Text("Minggu Ke-${item['minggu_ke']}"),
-                  subtitle: Text(item['materi_controller'].text.isEmpty 
-                    ? "Belum diisi" 
-                    : "Materi: ${item['materi_controller'].text}",
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(15.0),
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: item['materi_controller'],
-                            decoration: const InputDecoration(labelText: "Kemampuan Akhir / Materi", border: OutlineInputBorder()),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: item['metode_controller'],
-                            decoration: const InputDecoration(labelText: "Metode Pembelajaran (e.g. Ceramah, Diskusi)", border: OutlineInputBorder()),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: item['bobot_controller'],
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: "Bobot Nilai (%)", border: OutlineInputBorder()),
-                          ),
-                        ],
-                      ),
-                    )
-                  ],
+        : Column(
+            children: [
+              // Info Banner Singkat
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                color: primaryColor,
+                child: const Text(
+                  "Lengkapi materi dan bobot nilai untuk Minggu 1 s/d 14",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
                 ),
-              );
-            },
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(15, 15, 15, 80), // Padding bawah extra biar ga ketutupan tombol
+                  itemCount: _pertemuanData.length,
+                  itemBuilder: (context, index) {
+                    final item = _pertemuanData[index];
+                    return _buildPertemuanCard(item);
+                  },
+                ),
+              ),
+            ],
           ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(10.0),
+      bottomNavigationBar: _isLoading ? null : _buildBottomAction(),
+    );
+  }
+
+  // --- UI HELPER COMPONENTS ---
+
+  Widget _buildPertemuanCard(Map<String, dynamic> item) {
+    bool hasData = item['materi_controller'].text.isNotEmpty;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ExpansionTile(
+        shape: const Border(), // Hilangkan garis border default ExpansionTile
+        leading: CircleAvatar(
+          backgroundColor: hasData ? primaryColor : Colors.grey.shade300,
+          child: Text(
+            "${item['minggu_ke']}", 
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+          ),
+        ),
+        title: Text(
+          "Minggu Ke-${item['minggu_ke']}",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: hasData ? Colors.black87 : Colors.grey,
+          ),
+        ),
+        subtitle: Text(
+          item['materi_controller'].text.isEmpty 
+            ? "Ketuk untuk mengisi rencana..." 
+            : item['materi_controller'].text,
+          maxLines: 1, 
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              children: [
+                const Divider(height: 30),
+                _buildField(
+                  controller: item['materi_controller'],
+                  label: "Kemampuan Akhir / Materi",
+                  hint: "Masukan materi pembelajaran...",
+                  icon: Icons.menu_book_rounded,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 15),
+                _buildField(
+                  controller: item['metode_controller'],
+                  label: "Metode Pembelajaran",
+                  hint: "Contoh: Ceramah, Diskusi, Praktikum",
+                  icon: Icons.psychology_rounded,
+                ),
+                const SizedBox(height: 15),
+                _buildField(
+                  controller: item['bobot_controller'],
+                  label: "Bobot Nilai (%)",
+                  hint: "0",
+                  icon: Icons.percent_rounded,
+                  isNumber: true,
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    bool isNumber = false,
+  }) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      onChanged: (val) => setState(() {}), // Trigger refresh biar subtitle ExpansionTile update
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 20, color: primaryColor),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        labelStyle: const TextStyle(fontSize: 13),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomAction() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 55,
         child: ElevatedButton.icon(
           onPressed: _simpanSemua,
-          icon: const Icon(Icons.save, color: Colors.white),
-          label: const Text("SIMPAN RENCANA PERTEMUAN", style: TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 15)),
+          icon: const Icon(Icons.save_rounded, color: Colors.white),
+          label: const Text("SIMPAN SEMUA PERTEMUAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            elevation: 3,
+          ),
         ),
       ),
     );
