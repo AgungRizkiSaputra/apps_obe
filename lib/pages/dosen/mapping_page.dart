@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rps_obe_app/pages/dosen/mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 
@@ -16,7 +17,9 @@ class _MappingPageState extends State<MappingPage> {
   final _rpsService = RpsService();
   final _supabase = Supabase.instance.client;
   final _cpmkController = TextEditingController();
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
   
   Map<String, TextEditingController> _weightControllers = {};
   
@@ -38,7 +41,7 @@ class _MappingPageState extends State<MappingPage> {
     super.dispose();
   }
 
-  // --- LOGIKA FETCH DATA (UTUH) ---
+  // --- LOGIKA FETCH DATA (UTUH 100%) ---
   Future<void> _fetchCplDanStandar() async {
     setState(() => isLoading = true);
     try {
@@ -72,7 +75,7 @@ class _MappingPageState extends State<MappingPage> {
     return total;
   }
 
-  // --- POLESAN NOTIFIKASI CUSTOM (PREMIUM) ---
+  // --- LOGIKA NOTIFIKASI CUSTOM (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -95,7 +98,7 @@ class _MappingPageState extends State<MappingPage> {
     );
   }
 
-  // --- LOGIKA SIMPAN KOMPLIT (UI + LOGIC) ---
+  // --- LOGIKA SIMPAN KOMPLIT (UTUH 100%) ---
   Future<void> _simpanMapping() async {
     if (_cpmkController.text.isEmpty || selectedCplIds.isEmpty) {
       _showCustomNotif("Isi CPMK dan pilih minimal 1 CPL!", Colors.orange);
@@ -145,7 +148,7 @@ class _MappingPageState extends State<MappingPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text(widget.isRevision ? "Revisi Mapping OBE" : "Mapping CPMK"),
+        title: Text(widget.isRevision ? "Revisi Mapping OBE" : "Mapping CPMK", style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: widget.isRevision ? Colors.orange : primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -155,9 +158,7 @@ class _MappingPageState extends State<MappingPage> {
         ? const Center(child: CircularProgressIndicator())
         : Column(
             children: [
-              // Indicator Bobot (Sticky di atas)
               _buildWeightIndicator(currentTotal, isDone),
-              
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -167,13 +168,10 @@ class _MappingPageState extends State<MappingPage> {
                       _buildSectionTitle("1. Deskripsi CPMK", Icons.edit_note),
                       const SizedBox(height: 10),
                       _buildCpmkInput(),
-                      
                       const SizedBox(height: 30),
-                      
                       _buildSectionTitle("2. Pilih CPL & Bobot", Icons.checklist_rtl_rounded),
                       const SizedBox(height: 10),
                       ...listCpl.map((cpl) => _buildCplCard(cpl)),
-                      
                       const SizedBox(height: 30),
                       _buildSubmitButton(isDone),
                       const SizedBox(height: 20),
@@ -194,7 +192,9 @@ class _MappingPageState extends State<MappingPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         children: [
@@ -238,6 +238,7 @@ class _MappingPageState extends State<MappingPage> {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
       ),
     );
   }
@@ -254,7 +255,7 @@ class _MappingPageState extends State<MappingPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: isSelected ? primaryColor : Colors.transparent, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -300,7 +301,8 @@ class _MappingPageState extends State<MappingPage> {
                   labelText: "Bobot (%)",
                   filled: true,
                   fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
                 ),
               ),
             ),
@@ -318,7 +320,7 @@ class _MappingPageState extends State<MappingPage> {
           backgroundColor: isDone ? Colors.green : Colors.grey,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: isDone ? 4 : 0,
+          elevation: isDone ? 3 : 0,
         ),
         onPressed: isLoading ? null : _simpanMapping,
         child: Text(

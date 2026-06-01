@@ -11,9 +11,11 @@ class InputPertemuanPage extends StatefulWidget {
 
 class _InputPertemuanPageState extends State<InputPertemuanPage> {
   final rpsService = RpsService();
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
+  
   bool _isLoading = true;
-
   List<Map<String, dynamic>> _pertemuanData = [];
 
   @override
@@ -22,7 +24,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     _initData();
   }
 
-  // --- LOGIKA INIT DATA (UTUH) ---
+  // --- LOGIKA INIT DATA (UTUH 100%) ---
   Future<void> _initData() async {
     try {
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
@@ -119,7 +121,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
               ),
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(15, 15, 15, 80), // Padding bawah extra biar ga ketutupan tombol
+                  padding: const EdgeInsets.fromLTRB(15, 15, 15, 80), 
                   itemCount: _pertemuanData.length,
                   itemBuilder: (context, index) {
                     final item = _pertemuanData[index];
@@ -143,10 +145,13 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: hasData ? primaryColor.withOpacity(0.3) : Colors.grey.shade200, 
+          width: 1,
+        ),
       ),
       child: ExpansionTile(
-        shape: const Border(), // Hilangkan garis border default ExpansionTile
+        shape: const Border(), 
         leading: CircleAvatar(
           backgroundColor: hasData ? primaryColor : Colors.grey.shade300,
           child: Text(
@@ -217,7 +222,8 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       controller: controller,
       maxLines: maxLines,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      onChanged: (val) => setState(() {}), // Trigger refresh biar subtitle ExpansionTile update
+      onChanged: (val) => setState(() {}), 
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -225,6 +231,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
         filled: true,
         fillColor: Colors.grey.shade50,
         labelStyle: const TextStyle(fontSize: 13),
+        contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -242,7 +249,9 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5))
+        ],
       ),
       child: SizedBox(
         width: double.infinity,
@@ -252,9 +261,9 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
           icon: const Icon(Icons.save_rounded, color: Colors.white),
           label: const Text("SIMPAN SEMUA PERTEMUAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
+            backgroundColor: Colors.green.shade600,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            elevation: 3,
+            elevation: 2,
           ),
         ),
       ),

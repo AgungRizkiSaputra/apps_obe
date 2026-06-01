@@ -17,7 +17,9 @@ class DashboardDosen extends StatefulWidget {
 class _DashboardDosenState extends State<DashboardDosen> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA: BIRU TERANG SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
 
   late Future<List<Map<String, dynamic>>> _rpsFuture;
   bool _isSelectionMode = false;
@@ -37,7 +39,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     });
   }
 
-  // --- LOGIKA LOGOUT ---
+  // --- LOGIKA LOGOUT (UTUH) ---
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -48,7 +50,10 @@ class _DashboardDosenState extends State<DashboardDosen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red, 
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text("Keluar", style: TextStyle(color: Colors.white)),
           ),
@@ -61,7 +66,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     }
   }
 
-  // --- LOGIKA DELETE ---
+  // --- LOGIKA DELETE (UTUH) ---
   void _confirmBulkDelete() {
     showDialog(
       context: context,
@@ -92,14 +97,18 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
-  // --- LOGIKA KIRIM ---
+  // --- LOGIKA KIRIM (UTUH) ---
   Future<void> _handleKirimKeKaprodi(String rpsId) async {
     try {
       await rpsService.updateStatusRps(rpsId, 'waiting_approval');
       _refreshData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("RPS berhasil dikirim untuk divalidasi Kaprodi"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("RPS berhasil dikirim untuk divalidasi Kaprodi"), 
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
@@ -136,7 +145,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
           ),
         ],
       ),
-      // --- PERBAIKAN TOMBOL + RPS BARU ---
       floatingActionButton: _isSelectionMode 
         ? null 
         : FloatingActionButton.extended(
@@ -144,14 +152,14 @@ class _DashboardDosenState extends State<DashboardDosen> {
             label: const Text(
               "RPS BARU", 
               style: TextStyle(
-                color: Colors.white, // Teks jadi putih
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
               )
             ),
-            icon: const Icon(Icons.add_rounded, color: Colors.white), // Ikon jadi putih
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
             backgroundColor: primaryColor,
-            elevation: 6,
+            elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           ),
     );
@@ -161,9 +169,9 @@ class _DashboardDosenState extends State<DashboardDosen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(25, 60, 25, 30),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: primaryColor,
-        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
       ),
       child: Column(
         children: [
@@ -174,8 +182,10 @@ class _DashboardDosenState extends State<DashboardDosen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Selamat Datang,", style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14)),
-                  Text(user?.userMetadata?['nama'] ?? "Dosen Pengajar",
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    user?.userMetadata?['nama'] ?? "Dosen Pengajar",
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               _buildActionMenu(),
@@ -216,8 +226,14 @@ class _DashboardDosenState extends State<DashboardDosen> {
     return _isSelectionMode
         ? Row(
             children: [
-              IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: _selectedRpsIds.isEmpty ? null : _confirmBulkDelete),
-              IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => setState(() { _isSelectionMode = false; _selectedRpsIds.clear(); })),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.redAccent), 
+                onPressed: _selectedRpsIds.isEmpty ? null : _confirmBulkDelete,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white), 
+                onPressed: () => setState(() { _isSelectionMode = false; _selectedRpsIds.clear(); }),
+              ),
             ],
           )
         : PopupMenuButton<String>(
@@ -229,9 +245,30 @@ class _DashboardDosenState extends State<DashboardDosen> {
               if (val == 'logout') _handleLogout();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'pilih', child: ListTile(leading: Icon(Icons.checklist), title: Text("Pilih Banyak"))),
-              const PopupMenuItem(value: 'profil', child: ListTile(leading: Icon(Icons.person_outline), title: Text("Profil Saya"))),
-              const PopupMenuItem(value: 'logout', child: ListTile(leading: Icon(Icons.logout, color: Colors.red), title: Text("Keluar", style: TextStyle(color: Colors.red)))),
+              const PopupMenuItem<String>(
+                value: 'pilih', 
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.checklist), 
+                  title: Text("Pilih Banyak"),
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'profil', 
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.person_outline), 
+                  title: Text("Profil Saya"),
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout', 
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.logout, color: Colors.red), 
+                  title: Text("Keluar", style: TextStyle(color: Colors.red)),
+                ),
+              ),
             ],
           );
   }
@@ -246,14 +283,14 @@ class _DashboardDosenState extends State<DashboardDosen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 8))],
         ),
         child: TextField(
           onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
           decoration: const InputDecoration(
             hintText: "Cari mata kuliah...",
             border: InputBorder.none,
-            icon: Icon(Icons.search, color: Colors.indigo),
+            icon: Icon(Icons.search_rounded, color: primaryColor),
           ),
         ),
       ),
@@ -268,14 +305,17 @@ class _DashboardDosenState extends State<DashboardDosen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
-        color: isSelected ? Colors.indigo.shade50 : Colors.white,
+        color: isSelected ? const Color(0xfff0f7ff) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: isSelected ? Border.all(color: primaryColor) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(15),
-        leading: CircleAvatar(backgroundColor: primaryColor.withOpacity(0.1), child: Icon(Icons.book_rounded, color: primaryColor)),
+        leading: CircleAvatar(
+          backgroundColor: primaryColor.withOpacity(0.1), 
+          child: const Icon(Icons.book_rounded, color: primaryColor),
+        ),
         title: Text(rps['mata_kuliah']?['nama_mk'] ?? 'Mata Kuliah', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,19 +347,32 @@ class _DashboardDosenState extends State<DashboardDosen> {
     if (status.contains('waiting')) color = Colors.blue;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.5))),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1), 
+        borderRadius: BorderRadius.circular(8), 
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
       child: Text(status.replaceAll('_', ' ').toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 
   Widget _buildTrailingAction(String status, String rpsId, Map<String, dynamic> rps) {
     if (status == 'approved') return IconButton(icon: const Icon(Icons.print_rounded, color: Colors.green), onPressed: () => _printPdf(rpsId, rps));
-    if (['draft', 'revisi', 'revisi_selesai'].contains(status)) return TextButton(onPressed: () => _handleKirimKeKaprodi(rpsId), child: const Text("KIRIM"));
+    if (['draft', 'revisi', 'revisi_selesai'].contains(status)) return const TextButton(onPressed: null, child: Text("KIRIM", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)));
     return const Icon(Icons.hourglass_empty_rounded, color: Colors.blue, size: 20);
   }
 
   Widget _buildEmptyState() {
-    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.folder_open_rounded, size: 80, color: Colors.grey.shade300), const Text("Belum ada data RPS", style: TextStyle(color: Colors.grey))]));
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, 
+        children: [
+          Icon(Icons.folder_open_rounded, size: 80, color: Colors.grey), 
+          SizedBox(height: 10),
+          Text("Belum ada data RPS", style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
   }
 
   Future<void> _printPdf(String rpsId, Map<String, dynamic> rps) async {

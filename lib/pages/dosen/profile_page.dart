@@ -15,12 +15,14 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
   
   final TextEditingController _namaController = TextEditingController();
   final SignatureController _sigController = SignatureController(
     penStrokeWidth: 3, 
-    penColor: Colors.indigo.shade900, 
+    penColor: const Color(0xFF007AFF), 
     exportBackgroundColor: Colors.white,
   );
 
@@ -42,7 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  // --- LOGIKA UPLOAD FOTO PROFIL (UTUH) ---
+  // --- LOGIKA UPLOAD FOTO PROFIL (UTUH 100%) ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
@@ -67,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- LOGIKA UPDATE NAMA (UTUH) ---
+  // --- LOGIKA UPDATE NAMA (UTUH 100%) ---
   Future<void> _handleUpdateProfile() async {
     if (_namaController.text.isEmpty) return;
     setState(() => _isLoading = true);
@@ -81,7 +83,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- FUNGSI GANTI PASSWORD (UTUH) ---
+  // --- FUNGSI GANTI PASSWORD (UTUH 100%) ---
   void _showChangePasswordDialog() {
     final passController = TextEditingController();
     showDialog(context: context, builder: (context) => AlertDialog(
@@ -101,7 +103,10 @@ class _ProfilePageState extends State<ProfilePage> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor, 
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
           onPressed: () async {
             if (passController.text.length < 6) { 
               _showCustomNotif("Min 6 karakter", Colors.orange);
@@ -119,7 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
     ));
   }
 
-  // --- LOGIKA SIMPAN TANDA TANGAN (UTUH) ---
+  // --- LOGIKA SIMPAN TANDA TANGAN (UTUH 100%) ---
   Future<void> _saveSignature() async {
     if (_sigController.isEmpty) return;
     setState(() => _isLoading = true);
@@ -164,9 +169,9 @@ class _ProfilePageState extends State<ProfilePage> {
             Container(
               height: 100,
               width: double.infinity,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: primaryColor,
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
               ),
               child: Text(user?.email ?? "-", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
             ),
@@ -181,7 +186,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle, 
                       border: Border.all(color: Colors.white, width: 5), 
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)]
                     ),
                     child: CircleAvatar(
                       radius: 60,
@@ -196,10 +201,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   InkWell(
                     onTap: _pickImage,
-                    child: CircleAvatar(
+                    child: const CircleAvatar(
                       radius: 18, 
                       backgroundColor: primaryColor, 
-                      child: const Icon(Icons.camera_alt, size: 18, color: Colors.white)
+                      child: Icon(Icons.camera_alt, size: 18, color: Colors.white)
                     ),
                   ),
                 ],
@@ -216,8 +221,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     controller: _namaController,
                     decoration: InputDecoration(
                       labelText: "Nama Lengkap & Gelar",
-                      prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
+                      prefixIcon: const Icon(Icons.badge_outlined, color: primaryColor),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
                       filled: true,
                       fillColor: Colors.grey.shade50,
                     ),
@@ -315,7 +321,7 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

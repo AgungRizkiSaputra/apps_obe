@@ -14,7 +14,10 @@ class DetailRpsPage extends StatefulWidget {
 
 class _DetailRpsPageState extends State<DetailRpsPage> {
   final rpsService = RpsService();
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
+  
   late Future<Map<String, dynamic>> _detailFuture;
 
   @override
@@ -29,7 +32,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     });
   }
 
-  // --- LOGIKA UPDATE STATUS (UTUH) ---
+  // --- LOGIKA UPDATE STATUS (UTUH 100%) ---
   Future<void> _updateStatus(String status, {String? catatan}) async {
     try {
       await rpsService.updateStatusRps(widget.rpsId, status, catatan: catatan);
@@ -42,7 +45,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     }
   }
 
-  // --- POLESAN NOTIFIKASI (KONSISTEN DENGAN HALAMAN LAIN) ---
+  // --- POLESAN NOTIFIKASI KONSISTEN (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -54,7 +57,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- DIALOG REVISI (UI DIPERHALUS) ---
+  // --- DIALOG REVISI (UTUH) ---
   void _showRevisiDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -115,7 +118,13 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
           return Column(
             children: [
               // Header Aksen
-              Container(height: 20, decoration: BoxDecoration(color: primaryColor, borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)))),
+              Container(
+                height: 20, 
+                decoration: const BoxDecoration(
+                  color: primaryColor, 
+                  borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                ),
+              ),
               
               Expanded(
                 child: ListView(
@@ -125,7 +134,13 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                     _buildSectionHeader("Informasi Mata Kuliah", Icons.account_balance_rounded),
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
+                      decoration: BoxDecoration(
+                        color: Colors.white, 
+                        borderRadius: BorderRadius.circular(20), 
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4)),
+                        ],
+                      ),
                       child: Column(
                         children: [
                           _buildNewInfoRow(Icons.book, "Mata Kuliah", mk?['nama_mk'] ?? '-'),
@@ -179,7 +194,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         children: [
           Icon(icon, color: primaryColor, size: 22),
           const SizedBox(width: 10),
-          Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: primaryColor)),
+          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: primaryColor)),
         ],
       ),
     );
@@ -207,11 +222,15 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InputPertemuanPage(rpsId: widget.rpsId))).then((_) => _initData()),
         child: Container(
           padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.blue.shade100)),
-          child: Row(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F7FF), 
+            borderRadius: BorderRadius.circular(15), 
+            border: Border.all(color: primaryColor.withOpacity(0.2)),
+          ),
+          child: const Row(
             children: [
               Icon(Icons.edit_calendar_rounded, color: primaryColor),
-              const SizedBox(width: 15),
+              SizedBox(width: 15),
               Expanded(child: Text("Atur Rencana Pertemuan (Minggu 1-14)", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold))),
               Icon(Icons.arrow_forward_ios, size: 14, color: primaryColor),
             ],
@@ -246,8 +265,8 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.indigo.shade50, borderRadius: BorderRadius.circular(6)),
-                      child: Text("${m['cpl']['kode_cpl']} (${m['bobot'] ?? 0}%)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
+                      decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(6)),
+                      child: Text("${m['cpl']['kode_cpl']} (${m['bobot'] ?? 0}%)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text(m['cpl']['deskripsi'], style: const TextStyle(fontSize: 12, color: Colors.black87))),
@@ -264,9 +283,16 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   Widget _buildPertemuanCard(Map<String, dynamic> p) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade100)),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(15), 
+        border: Border.all(color: Colors.grey.shade100),
+      ),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: primaryColor.withOpacity(0.1), child: Text("${p['minggu_ke']}", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 14))),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFF0F7FF), 
+          child: Text("${p['minggu_ke']}", style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 14)),
+        ),
         title: Text(p['kemampuan_akhir'] ?? '-', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         subtitle: Text("Metode: ${p['metode_pembelajaran'] ?? '-'}\nBobot Nilai: ${p['bobot_nilai']}%", style: const TextStyle(fontSize: 12)),
       ),
@@ -276,7 +302,12 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   Widget _buildKaprodiActions() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))]),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5)),
+        ],
+      ),
       child: Row(
         children: [
           Expanded(
@@ -284,7 +315,12 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
               onPressed: _showRevisiDialog,
               icon: const Icon(Icons.edit_note),
               label: const Text("Revisi"),
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.orange, side: const BorderSide(color: Colors.orange), padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange, 
+                side: const BorderSide(color: Colors.orange), 
+                padding: const EdgeInsets.symmetric(vertical: 15), 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
           const SizedBox(width: 15),
@@ -293,7 +329,12 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
               onPressed: () => _updateStatus('approved'),
               icon: const Icon(Icons.check_circle_rounded),
               label: const Text("Setujui"),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green, 
+                foregroundColor: Colors.white, 
+                padding: const EdgeInsets.symmetric(vertical: 15), 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
         ],
@@ -301,5 +342,12 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  Widget _buildEmptyState(String msg) => Padding(padding: const EdgeInsets.all(20), child: Center(child: Text(msg, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey))));
+  Widget _buildEmptyState(String msg) {
+    return Padding(
+      padding: const EdgeInsets.all(20), 
+      child: Center(
+        child: Text(msg, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+      ),
+    );
+  }
 }

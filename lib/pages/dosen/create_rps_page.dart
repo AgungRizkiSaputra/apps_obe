@@ -13,7 +13,9 @@ class CreateRpsPage extends StatefulWidget {
 class _CreateRpsPageState extends State<CreateRpsPage> {
   final _rpsService = RpsService();
   final _supabase = Supabase.instance.client;
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF007AFF);
 
   String? selectedMkId;
   final tahunController = TextEditingController(text: "2025/2026");
@@ -40,7 +42,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     }
   }
 
-  // --- LOGIKA VALIDASI (UTUH) ---
+  // --- LOGIKA VALIDASI (UTUH 100%) ---
   bool _isInputValid() {
     if (selectedMkId == null) {
       _showCustomNotif("Silakan pilih Mata Kuliah!", Colors.orange);
@@ -57,7 +59,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     return true;
   }
 
-  // --- POLESAN NOTIFIKASI BARU ---
+  // --- POLESAN NOTIFIKASI KONSISTEN (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -77,15 +79,15 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
           ],
         ),
         backgroundColor: color,
-        behavior: SnackBarBehavior.floating, // Biar melayang
-        margin: const EdgeInsets.all(20), // Jarak dari pinggir layar
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF BARU) ---
+  // --- LOGIKA SIMPAN (UTUH 100%) ---
   Future<void> _handleSimpanRps() async {
     if (!_isInputValid()) return;
     setState(() => isLoading = true);
@@ -98,7 +100,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
         semester: selectedSemester,
       );
       if (mounted) {
-        // Panggil Notif Keren
         _showCustomNotif("Draft Tersimpan! Membuka Mapping OBE...", Colors.green);
         
         Navigator.pushReplacement(
@@ -130,9 +131,9 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
             Container(
               height: 60,
               width: double.infinity,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: primaryColor,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
                 ),
@@ -148,7 +149,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))
+                      BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))
                     ],
                   ),
                   child: Column(
@@ -207,6 +208,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
@@ -220,6 +222,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
         hintText: "Contoh: 2025/2026",
         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
@@ -234,6 +237,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
@@ -245,7 +249,12 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor, 
+          foregroundColor: Colors.white, 
+          elevation: 2, 
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
         onPressed: isLoading ? null : _handleSimpanRps,
         child: isLoading 
           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
