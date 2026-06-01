@@ -39,7 +39,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     });
   }
 
-  // --- LOGIKA LOGOUT (UTUH) ---
+  // --- LOGIKA LOGOUT (UTUH 100%) ---
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -66,7 +66,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     }
   }
 
-  // --- LOGIKA DELETE (UTUH) ---
+  // --- LOGIKA DELETE (UTUH 100%) ---
   void _confirmBulkDelete() {
     showDialog(
       context: context,
@@ -97,7 +97,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
-  // --- LOGIKA KIRIM (UTUH) ---
+  // --- LOGIKA KIRIM (UTUH 100% DAN SEKARANG TERKONEKSI KE TOMBOL) ---
   Future<void> _handleKirimKeKaprodi(String rpsId) async {
     try {
       await rpsService.updateStatusRps(rpsId, 'waiting_approval');
@@ -357,8 +357,20 @@ class _DashboardDosenState extends State<DashboardDosen> {
   }
 
   Widget _buildTrailingAction(String status, String rpsId, Map<String, dynamic> rps) {
-    if (status == 'approved') return IconButton(icon: const Icon(Icons.print_rounded, color: Colors.green), onPressed: () => _printPdf(rpsId, rps));
-    if (['draft', 'revisi', 'revisi_selesai'].contains(status)) return const TextButton(onPressed: null, child: Text("KIRIM", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)));
+    if (status == 'approved') {
+      return IconButton(
+        key: ValueKey('print_$rpsId'),
+        icon: const Icon(Icons.print_rounded, color: Colors.green), 
+        onPressed: () => _printPdf(rpsId, rps),
+      );
+    }
+    if (['draft', 'revisi', 'revisi_selesai'].contains(status)) {
+      return TextButton(
+        key: ValueKey('kirim_$rpsId'),
+        onPressed: () => _handleKirimKeKaprodi(rpsId), 
+        child: const Text("KIRIM", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+      );
+    }
     return const Icon(Icons.hourglass_empty_rounded, color: Colors.blue, size: 20);
   }
 
@@ -375,11 +387,60 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
+  // --- INDIKATOR CETAK INTERAKTIF DENGAN NOTIFIKASI BERLAPIS ---
   Future<void> _printPdf(String rpsId, Map<String, dynamic> rps) async {
+    // 1. Memunculkan Dialog Loading Pemroses Data (Anti-freeze)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: primaryColor),
+                SizedBox(height: 15),
+                Text("Menyiapkan Dokumen PDF...", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
     try {
       final fullData = await rpsService.getRpsDetail(rpsId);
       final mapping = await rpsService.getMappingFullForPdf(rpsId);
+      
+      if (mounted) Navigator.pop(context); // Tutup Dialog Loading
+
+      // 2. Tembak ke fungsi cetak di PdfHelper
       await PdfHelper.cetakRps(fullData, mapping);
-    } catch (e) { debugPrint(e.toString()); }
+
+      // 3. Memunculkan Snackbar Notifikasi Sukses Setelah Berhasil Mengunduh/Buka
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Dokumen RPS Berhasil Didownload!"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) { 
+      if (mounted) Navigator.pop(context); // Pastikan dialog tertutup jika error
+      debugPrint(e.toString()); 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal mengunduh dokumen: $e"),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
