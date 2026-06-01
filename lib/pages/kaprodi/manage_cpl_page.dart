@@ -10,13 +10,16 @@ class ManageCplPage extends StatefulWidget {
 
 class _ManageCplPageState extends State<ManageCplPage> {
   final rpsService = RpsService();
+  
+  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896);
+
   final _kodeController = TextEditingController();
   final _deskripsiController = TextEditingController();
-  final primaryColor = Colors.indigo.shade900;
 
   void _refresh() => setState(() {});
 
-  // --- UI DIALOG TAMBAH (LOGIKA UTUH) ---
+  // --- UI DIALOG TAMBAH (LOGIKA UTUH 100%) ---
   void _showAddDialog() {
     showDialog(
       context: context,
@@ -32,8 +35,9 @@ class _ManageCplPageState extends State<ManageCplPage> {
                 decoration: InputDecoration(
                   labelText: "Kode CPL",
                   hintText: "Contoh: CPL-01",
-                  prefixIcon: const Icon(Icons.tag),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.tag, color: primaryColor),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.grey)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
                 )
               ),
               const SizedBox(height: 15),
@@ -43,8 +47,9 @@ class _ManageCplPageState extends State<ManageCplPage> {
                 decoration: InputDecoration(
                   labelText: "Deskripsi", 
                   alignLabelWithHint: true,
-                  prefixIcon: const Icon(Icons.description_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.description_outlined, color: primaryColor),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.grey)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
                 ),
               ),
             ],
@@ -55,7 +60,8 @@ class _ManageCplPageState extends State<ManageCplPage> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               if (_kodeController.text.trim().isEmpty || _deskripsiController.text.trim().isEmpty) {
@@ -76,21 +82,21 @@ class _ManageCplPageState extends State<ManageCplPage> {
                 if (mounted) _showNotif("Gagal: $e", Colors.red);
               }
             },
-            child: const Text("Simpan", style: TextStyle(color: Colors.white)),
+            child: const Text("Simpan"),
           ),
         ],
       ),
     );
   }
 
-  // --- HELPER NOTIFIKASI ---
+  // --- HELPER NOTIFIKASI (KONSISTEN) ---
   void _showNotif(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -112,9 +118,9 @@ class _ManageCplPageState extends State<ManageCplPage> {
           Container(
             height: 20,
             width: double.infinity,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
           ),
           Expanded(
@@ -148,20 +154,21 @@ class _ManageCplPageState extends State<ManageCplPage> {
   }
 
   Widget _buildCplCard(Map<String, dynamic> cpl, int index) {
-    return Card(
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        side: BorderSide(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         leading: CircleAvatar(
-          backgroundColor: primaryColor.withValues(alpha: 0.1),
+          backgroundColor: primaryColor.withOpacity(0.1),
           child: Text(
             "${index + 1}",
-            style: TextStyle(
+            style: const TextStyle(
               color: primaryColor,
               fontWeight: FontWeight.bold,
             ),
@@ -169,17 +176,17 @@ class _ManageCplPageState extends State<ManageCplPage> {
         ),
         title: Text(
           cpl['kode_cpl'] ?? '-', 
-          style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)
+          style: const TextStyle(fontWeight: FontWeight.bold, color: primaryColor)
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(
             cpl['deskripsi'] ?? '-',
-            style: const TextStyle(fontSize: 13, height: 1.4),
+            style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
           ),
         ),
         trailing: IconButton(
-          icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
+          icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 24),
           onPressed: () async {
             final confirm = await showDialog<bool>(
               context: context,
@@ -216,13 +223,13 @@ class _ManageCplPageState extends State<ManageCplPage> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_outlined, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 10),
-          const Text("Belum ada data CPL Prodi", style: TextStyle(color: Colors.grey)),
+          Icon(Icons.inbox_outlined, size: 80, color: Color(0xFFD6D6D6)),
+          SizedBox(height: 10),
+          Text("Belum ada data CPL Prodi", style: TextStyle(color: Colors.grey)),
         ],
       ),
     );

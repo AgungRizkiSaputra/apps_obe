@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rps_obe_app/pages/dosen/mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 

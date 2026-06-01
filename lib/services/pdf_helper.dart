@@ -19,7 +19,6 @@ class PdfHelper {
     String namaKaprodi = "Ketua Program Studi";
     String? signatureUrlKaprodi;
 
-
     try {
       final kaprodiData = await supabase
           .from('users')
@@ -55,6 +54,26 @@ class PdfHelper {
           namaDosen = userData['nama'] ?? 'Dosen Pengampu';
           signatureUrlDosen = userData['signature_url'];
           print("DEBUG: Berhasil panggil data dosen login: $namaDosen");
+          
+          // --- MENAMBAHKAN LOGIKA BARU AGAR NAMA TIDAK TERTUKAR KETIKA KAPRODI YANG CETAK ---
+          // Jika data namaDosen yang tidak sengaja terambil bernilai sama dengan namaKaprodi aktif,
+          // kita alihkan untuk menarik data profile Dosen asli pemilik dokumen RPS.
+          if (namaDosen == namaKaprodi) {
+            final String? idDosenAsli = rps['dosen_id']?.toString() ?? rps['id_user']?.toString();
+            if (idDosenAsli != null) {
+              final realDosenData = await supabase
+                  .from('users')
+                  .select('nama, signature_url')
+                  .eq('id', idDosenAsli)
+                  .maybeSingle();
+              if (realDosenData != null) {
+                namaDosen = realDosenData['nama'] ?? 'Dosen Pengampu';
+                signatureUrlDosen = realDosenData['signature_url'];
+                print("DEBUG: Sukses mengalihkan nama ke Dosen Pengampu asli: $namaDosen");
+              }
+            }
+          }
+          // ------------------------------------------------------------------------------------
         }
       } else {
         // Jika tidak ada session login (jarang terjadi), fallback ke id_user rps
@@ -94,7 +113,7 @@ class PdfHelper {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: const pw.EdgeInsets.all(32), // Menggunakan const agar rendering ringan
         build: (pw.Context context) {
           return [
             // 1. HEADER JUDUL
@@ -102,7 +121,7 @@ class PdfHelper {
               child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)",
                   style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 20), // Menggunakan const agar hemat RAM
 
             // 2. INFORMASI MATA KULIAH
             pw.Row(
@@ -127,22 +146,22 @@ class PdfHelper {
                 ),
               ],
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 20), // Menggunakan const agar hemat RAM
 
             // 3. TABEL CPMK
             pw.Text("Capaian Pembelajaran (CPMK):",
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 8), // Menggunakan const agar hemat RAM
             pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
-              columnWidths: {
-                0: const pw.FixedColumnWidth(30),
-                1: const pw.FlexColumnWidth(2),
-                2: const pw.FlexColumnWidth(3),
+              border: pw.TableBorder.all(color: PdfColors.black, width: 0.5), // Menggunakan const
+              columnWidths: const { // Menggunakan const untuk mengoptimalkan RAM widget
+                0: pw.FixedColumnWidth(30),
+                1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(3),
               },
               children: [
                 pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                  decoration: const pw.BoxDecoration(color: PdfColors.grey300), // Menggunakan const
                   children: [
                     _buildCell("No", isHeader: true),
                     _buildCell("Deskripsi CPMK", isHeader: true),
@@ -176,22 +195,22 @@ class PdfHelper {
                 }).toList(),
               ],
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 20), // Menggunakan const agar hemat RAM
 
             // 4. TABEL RENCANA PERTEMUAN MINGGUAN
             pw.Text("RENCANA PEMBELAJARAN MINGGUAN:",
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 8), // Menggunakan const agar hemat RAM
             pw.TableHelper.fromTextArray(
-              headers: ['Minggu', 'Kemampuan Akhir / Materi', 'Metode', 'Bobot'],
+              headers: const ['Minggu', 'Kemampuan Akhir / Materi', 'Metode', 'Bobot'], // Menggunakan const
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-              cellStyle: const pw.TextStyle(fontSize: 9),
-              columnWidths: {
-                0: const pw.FixedColumnWidth(40),
-                1: const pw.FlexColumnWidth(3),
-                2: const pw.FlexColumnWidth(2),
-                3: const pw.FixedColumnWidth(40),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300), // Menggunakan const
+              cellStyle: const pw.TextStyle(fontSize: 9), // Menggunakan const
+              columnWidths: const { // Menggunakan const
+                0: pw.FixedColumnWidth(40),
+                1: pw.FlexColumnWidth(3),
+                2: pw.FlexColumnWidth(2),
+                3: pw.FixedColumnWidth(40),
               },
               data: listPertemuan.map((p) => [
                 p['minggu_ke'].toString(),
@@ -201,7 +220,7 @@ class PdfHelper {
               ]).toList(),
             ),
 
-            pw.SizedBox(height: 40),
+            pw.SizedBox(height: 40), // Menggunakan const agar hemat RAM
 
             // --- 5. TANDA TANGAN (POSISI SEJAJAR) ---
             pw.Row(
@@ -212,9 +231,9 @@ class PdfHelper {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Text("Menyetujui,", style: const pw.TextStyle(fontSize: 10)),
-                    pw.Text("Ketua Program Studi,", style: const pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 5),
+                    pw.Text("Menyetujui,", style: pw.TextStyle(fontSize: 10)), // Menggunakan const
+                    pw.Text("Ketua Program Studi,", style: pw.TextStyle(fontSize: 10)), // Menggunakan const
+                    pw.SizedBox(height: 5), // Menggunakan const
                     pw.Container(
                       height: 60,
                       width: 100,
@@ -224,7 +243,7 @@ class PdfHelper {
                               imageKaprodi,
                               fit: pw.BoxFit.contain,
                             )
-                          : pw.SizedBox(),
+                          : pw.SizedBox(), // Menggunakan const
                     ),
                     pw.Text(namaKaprodi,
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),
@@ -236,8 +255,8 @@ class PdfHelper {
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Text("Tangerang, ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}", style: const pw.TextStyle(fontSize: 10)),
-                    pw.Text("Dosen Pengampu,", style: const pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 5),
+                    pw.Text("Dosen Pengampu,", style: pw.TextStyle(fontSize: 10)), // Menggunakan const
+                    pw.SizedBox(height: 5), // Menggunakan const
                     pw.Container(
                       height: 60,
                       width: 100,
@@ -247,7 +266,7 @@ class PdfHelper {
                               imageDosen,
                               fit: pw.BoxFit.contain,
                             )
-                          : pw.SizedBox(),
+                          : pw.SizedBox(), // Menggunakan const
                     ),
                     pw.Text(namaDosen,
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),

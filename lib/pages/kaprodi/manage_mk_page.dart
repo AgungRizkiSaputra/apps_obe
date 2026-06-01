@@ -10,18 +10,18 @@ class ManageMkPage extends StatefulWidget {
 
 class _ManageMkPageState extends State<ManageMkPage> {
   final rpsService = RpsService();
-  final primaryColor = Colors.indigo.shade900;
   
-  // Controller untuk form input (TIDAK DIUBAH)
+  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896);
+  
   final _kodeController = TextEditingController();
   final _namaController = TextEditingController();
   final _sksController = TextEditingController();
   final _semesterController = TextEditingController();
 
-  // Fungsi Refresh Data (TIDAK DIUBAH)
   void _refresh() => setState(() {});
 
-  // --- LOGIKA VALIDASI INPUT (TETAP UTUH) ---
+  // --- LOGIKA VALIDASI INPUT (UTUH 100%) ---
   bool _isValid() {
     if (_kodeController.text.trim().isEmpty || _namaController.text.trim().isEmpty) {
       _showWarning("Kode dan Nama MK wajib diisi!");
@@ -108,7 +108,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- WIDGET DIALOG REUSABLE (UI DIPOLEH) ---
+  // --- WIDGET DIALOG REUSABLE (OPTIMASI RINGAN) ---
   Widget _buildMkDialog({required String title, required String buttonText, required VoidCallback onPressed}) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -117,7 +117,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDialogField(_kodeController, "Kode MK", Icons.qr_code, "Contoh: MK001"),
+            _buildDialogField(_kodeController, "Kode MK", Icons.qr_code, "Contool: MK001"),
             const SizedBox(height: 15),
             _buildDialogField(_namaController, "Nama Mata Kuliah", Icons.book, ""),
             const SizedBox(height: 15),
@@ -153,10 +153,11 @@ class _ManageMkPageState extends State<ManageMkPage> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
+        prefixIcon: Icon(icon, size: 20, color: primaryColor),
         filled: true,
         fillColor: Colors.grey.shade50,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
       ),
     );
   }
@@ -199,13 +200,12 @@ class _ManageMkPageState extends State<ManageMkPage> {
       ),
       body: Column(
         children: [
-          // Aksen Header
           Container(
             height: 20,
             width: double.infinity,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
           ),
           Expanded(
@@ -246,7 +246,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
         border: Border.all(color: Colors.grey.shade100),
       ),
       child: ListTile(
@@ -257,8 +257,8 @@ class _ManageMkPageState extends State<ManageMkPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(mk['sks']?.toString() ?? '0', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
-              const Text("SKS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+              Text(mk['sks']?.toString() ?? '0', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor)),
+              const Text("SKS", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: primaryColor)),
             ],
           ),
         ),
@@ -270,7 +270,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(icon: Icon(Icons.edit_outlined, color: Colors.blue.shade700, size: 22), onPressed: () => _showEditDialog(mk)),
+            IconButton(icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 22), onPressed: () => _showEditDialog(mk)),
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
               onPressed: () async {

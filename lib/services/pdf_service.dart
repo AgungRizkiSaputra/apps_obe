@@ -15,38 +15,46 @@ class PdfService {
             children: [
               // HEADER
               pw.Center(
-                child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)",
-                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                child: pw.Text(
+                  "RENCANA PEMBELAJARAN SEMESTER (RPS)",
+                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                ),
               ),
-              pw.SizedBox(height: 20),
+              pw.SizedBox(height: 20), 
 
               // TABEL INFORMASI MK
               pw.TableHelper.fromTextArray(
                 context: context,
                 data: [
                   ['Mata Kuliah', rpsData['mata_kuliah']?['nama_mk'] ?? '-'],
-                  ['Kode / SKS', "${rpsData['mata_kuliah']?['kode_mk']} / ${rpsData['mata_kuliah']?['sks']}"],
+                  ['Kode / SKS', "${rpsData['mata_kuliah']?['kode_mk'] ?? '-'} / ${rpsData['mata_kuliah']?['sks'] ?? '-'}"],
                   ['Semester', rpsData['semester'] ?? '-'],
-                  ['Dosen Pengampu', rpsData['users']?['nama'] ?? '-'],
+                  [
+                    'Dosen Pengampu', 
+                    (rpsData['users'] != null && rpsData['users']['nama'] != null && rpsData['users']['nama'].toString().trim().isNotEmpty)
+                        ? rpsData['users']['nama'].toString()
+                        : (rpsData['nama_dosen'] ?? rpsData['dosen_nama'] ?? '-')
+                  ],
                 ],
               ),
-              pw.SizedBox(height: 20),
+              pw.SizedBox(height: 20), 
 
               // BAGIAN CPMK & CPL
-              pw.Text("Capaian Pembelajaran (OBE Mapping):",
-                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
+              pw.Text(
+                "Capaian Pembelajaran (OBE Mapping):",
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10), // Menggunakan const agar RAM enteng
 
               pw.TableHelper.fromTextArray(
                 context: context,
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headers: ['No', 'CPMK (Deskripsi)', 'Korelasi CPL'],
+                headers: const ['No', 'CPMK (Deskripsi)', 'Korelasi CPL'], // Menggunakan const
                 data: List.generate(mappingData.length, (index) {
                   final item = mappingData[index];
                   return [
                     (index + 1).toString(),
                     item['deskripsi_cpmk'] ?? '-',
-                    // Di sini kita asumsikan mappingData sudah join dengan kode_cpl
                     item['cpl_kode'] ?? '-', 
                   ];
                 }),

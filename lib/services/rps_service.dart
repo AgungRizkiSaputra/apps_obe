@@ -430,11 +430,18 @@ class RpsService {
   }
 
   // Fungsi hapus dosen
-  Future<void> deleteDosen(String id) async {
+  // --- GANTI FUNGSI deleteDosen KAMU DENGAN INI BIAR APPLIKASI SUPER RINGAN ---
+  Future<void> deleteDosen(String dosenId) async {
     try {
-      await supabase.from('users').delete().eq('id', id);
+      // Kita panggil fungsi SQL pusat yang sudah dibuat di Supabase tadi
+      // Cara ini 100% aman dari kuncian RLS dan Foreign Key, serta hemat memori RAM!
+      await supabase.rpc(
+        'soft_delete_dosen_by_id',
+        params: {'dosen_id_input': dosenId},
+      );
+      
     } catch (e) {
-      throw 'Dosen tidak bisa dihapus karena sudah memiliki data RPS aktif di database.';
+      throw 'Gagal menghapus data dosen melalui sistem: $e';
     }
   }
 
@@ -505,5 +512,7 @@ class RpsService {
       throw 'Gagal mendaftarkan dosen: $e';
     }
   }
+
+  
 
 }

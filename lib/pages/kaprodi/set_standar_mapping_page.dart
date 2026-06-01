@@ -10,7 +10,9 @@ class SetStandarMappingPage extends StatefulWidget {
 
 class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
   final rpsService = RpsService();
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896);
   
   List<Map<String, dynamic>> _allMk = [];
   List<String> _mkSudahSet = []; 
@@ -22,7 +24,7 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
     _loadDashboardData();
   }
 
-  // --- LOGIKA LOAD DATA (UTUH) ---
+  // --- LOGIKA LOAD DATA (UTUH 100%) ---
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
@@ -65,9 +67,9 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
                 Container(
                   height: 20,
                   width: double.infinity,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: primaryColor,
-                    borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                    borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
                   ),
                 ),
                 Expanded(
@@ -150,7 +152,9 @@ class FormMappingMk extends StatefulWidget {
 }
 
 class _FormMappingMkState extends State<FormMappingMk> {
-  final primaryColor = Colors.indigo.shade900;
+  // --- WARNA KHUSUS KAPRODI KONSISTEN TEAL SOLID ---
+  static const Color primaryColor = Color(0xFF00A896);
+  
   List<Map<String, dynamic>> _allCpl = [];
   List<String> _selectedCplIds = [];
   bool _isLoading = true;
@@ -161,7 +165,7 @@ class _FormMappingMkState extends State<FormMappingMk> {
     _loadCplData();
   }
 
-  // --- LOGIKA LOAD CPL (UTUH) ---
+  // --- LOGIKA LOAD CPL (UTUH 100%) ---
   Future<void> _loadCplData() async {
     final cplData = await widget.rpsService.getAllCpl();
     final standarIds = await widget.rpsService.getStandarCplIds(widget.mkData['id'].toString());
@@ -172,7 +176,7 @@ class _FormMappingMkState extends State<FormMappingMk> {
     });
   }
 
-  // --- LOGIKA SAVE (UTUH) ---
+  // --- LOGIKA SAVE (UTUH 100%) ---
   void _handleSave() async {
     setState(() => _isLoading = true);
     await widget.rpsService.saveStandarMapping(widget.mkData['id'].toString(), _selectedCplIds);
@@ -210,7 +214,7 @@ class _FormMappingMkState extends State<FormMappingMk> {
                 child: const Text(
                   "Pilih CPL yang wajib dipenuhi oleh dosen saat membuat RPS untuk mata kuliah ini.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.indigo, fontStyle: FontStyle.italic),
+                  style: TextStyle(fontSize: 12, color: primaryColor, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
                 ),
               ),
               Expanded(
@@ -227,12 +231,12 @@ class _FormMappingMkState extends State<FormMappingMk> {
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
-                        side: BorderSide(color: isSelected ? primaryColor : Colors.grey.shade200),
+                        side: BorderSide(color: isSelected ? primaryColor : Colors.grey.shade200, width: isSelected ? 1.8 : 1),
                       ),
                       child: CheckboxListTile(
                         activeColor: primaryColor,
                         title: Text(cpl['kode_cpl'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(cpl['deskripsi'], style: const TextStyle(fontSize: 12)),
+                        subtitle: Text(cpl['deskripsi'], style: const TextStyle(fontSize: 12, color: Colors.black87)),
                         value: isSelected,
                         onChanged: (val) {
                           setState(() {
@@ -255,7 +259,9 @@ class _FormMappingMkState extends State<FormMappingMk> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5))
+        ],
       ),
       child: SizedBox(
         width: double.infinity,
@@ -266,6 +272,7 @@ class _FormMappingMkState extends State<FormMappingMk> {
             backgroundColor: primaryColor, 
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
           ),
           child: const Text("SIMPAN STANDAR KURIKULUM", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
         ),

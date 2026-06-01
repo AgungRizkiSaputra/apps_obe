@@ -15,12 +15,14 @@ class ProfileKaprodiPage extends StatefulWidget {
 class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896);
   
   final TextEditingController _namaController = TextEditingController();
   final SignatureController _sigController = SignatureController(
     penStrokeWidth: 3, 
-    penColor: Colors.indigo.shade900, 
+    penColor: primaryColor, 
     exportBackgroundColor: Colors.white,
   );
 
@@ -42,7 +44,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     super.dispose();
   }
 
-  // --- LOGIKA UPLOAD FOTO (UTUH) ---
+  // --- LOGIKA UPLOAD FOTO (UTUH 100%) ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
@@ -68,7 +70,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     }
   }
 
-  // --- LOGIKA UPDATE NAMA (UTUH) ---
+  // --- LOGIKA UPDATE NAMA (UTUH 100%) ---
   Future<void> _handleUpdateProfile() async {
     if (_namaController.text.isEmpty) return;
     setState(() => _isLoading = true);
@@ -82,7 +84,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     }
   }
 
-  // --- FUNGSI GANTI PASSWORD (UTUH) ---
+  // --- FUNGSI GANTI PASSWORD (UTUH 100%) ---
   void _showChangePasswordDialog() {
     final passController = TextEditingController();
     showDialog(
@@ -96,7 +98,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
           decoration: InputDecoration(
             hintText: "Minimal 6 karakter",
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            prefixIcon: const Icon(Icons.lock_outline),
+            prefixIcon: const Icon(Icons.lock_outline, color: primaryColor),
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
@@ -130,7 +132,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     );
   }
 
-  // --- LOGIKA SIMPAN TTD (UTUH) ---
+  // --- LOGIKA SIMPAN TTD (UTUH 100%) ---
   Future<void> _saveSignature() async {
     if (_sigController.isEmpty) return;
     setState(() => _isLoading = true);
@@ -147,7 +149,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
     }
   }
 
-  // --- HELPER NOTIFIKASI ---
+  // --- HELPER NOTIFIKASI (KONSISTEN) ---
   void _showNotif(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -175,9 +177,9 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
             Container(
               height: 100,
               width: double.infinity,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: primaryColor,
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
               ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -195,7 +197,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle, 
                       border: Border.all(color: Colors.white, width: 5), 
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)]
                     ),
                     child: CircleAvatar(
                       radius: 60,
@@ -210,19 +212,19 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                   ),
                   InkWell(
                     onTap: _pickImage,
-                    child: CircleAvatar(
+                    child: const CircleAvatar(
                       radius: 18, 
                       backgroundColor: primaryColor, 
-                      child: const Icon(Icons.camera_alt, size: 18, color: Colors.white)
+                      child: Icon(Icons.camera_alt, size: 18, color: Colors.white)
                     ),
                   ),
                 ],
               ),
             ),
             
-            // --- KARTU-KARTU INFORMASI ---
+            // --- KARTU INFORMASI DATA STRUKTURAL ---
             _buildSectionCard(
-              title: "Data Struktural",
+              title: "Data Structural",
               icon: Icons.account_balance_outlined,
               child: Column(
                 children: [
@@ -230,8 +232,9 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
                     controller: _namaController,
                     decoration: InputDecoration(
                       labelText: "Nama Kaprodi & Gelar",
-                      prefixIcon: Icon(Icons.person, color: primaryColor),
+                      prefixIcon: const Icon(Icons.person, color: primaryColor),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
                       filled: true,
                       fillColor: Colors.grey.shade50,
                     ),
@@ -255,6 +258,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
               ),
             ),
 
+            // --- KARTU KEAMANAN AKUN ---
             _buildSectionCard(
               title: "Keamanan Akun",
               icon: Icons.security,
@@ -268,6 +272,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
               ),
             ),
 
+            // --- KARTU TANDA TANGAN DIGITAL ---
             _buildSectionCard(
               title: "Tanda Tangan Digital",
               icon: Icons.draw_outlined,
@@ -333,7 +338,7 @@ class _ProfileKaprodiPageState extends State<ProfileKaprodiPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

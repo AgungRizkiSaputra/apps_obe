@@ -3,6 +3,7 @@ import 'package:rps_obe_app/pages/kaprodi/manage_cpl_page.dart';
 import 'package:rps_obe_app/pages/kaprodi/set_standar_mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
+import '../../services/pdf_helper.dart'; // --- IMPORT PDF HELPER AGAR BISA NGEPRINT ---
 import '../../shared/detail_rps_page.dart';
 import '../auth/login_page.dart';
 import 'manage_mk_page.dart';
@@ -20,12 +21,13 @@ class DashboardKaprodi extends StatefulWidget {
 class _DashboardKaprodiState extends State<DashboardKaprodi> {
   final rpsService = RpsService();
   final user = Supabase.instance.client.auth.currentUser;
-  final primaryColor = Colors.indigo.shade900; 
+  
+  // --- WARNA KHUSUS KAPRODI: TEAL BERSIH SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896); 
   
   late Future<List<Map<String, dynamic>>> _reviewFuture;
   Map<String, dynamic> _stats = {'pending': 0, 'approved': 0, 'revisi': 0, 'mk': 0, 'cpl': 0};
   
-  // --- TAMBAHAN STATE SEARCH ---
   String _searchQuery = "";
 
   @override
@@ -35,7 +37,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     _refreshData();
   }
 
-  // --- LOGIKA FETCH & SORT (UTUH) ---
+  // --- LOGIKA FETCH & SORT (UTUH 100%) ---
   Future<List<Map<String, dynamic>>> _fetchAndSortRps() async {
     final list = await rpsService.getRpsForKaprodi();
     list.sort((a, b) {
@@ -48,7 +50,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     return list;
   }
 
-  // --- LOGIKA REFRESH (UTUH) ---
+  // --- LOGIKA REFRESH (UTUH 100%) ---
   void _refreshData() async {
     try {
       final dataStats = await rpsService.getKaprodiStats();
@@ -63,7 +65,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     }
   }
 
-  // --- LOGIKA LOGOUT (UTUH) ---
+  // --- LOGIKA LOGOUT (UTUH 100%) ---
   Future<void> _handleLogout() async {
     await Supabase.instance.client.auth.signOut();
     if (mounted) {
@@ -85,6 +87,35 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     return status.toUpperCase();
   }
 
+  // --- LOGIKA CETAK PDF MANDIRI KAPRODI (UTUH DENGAN EMBEDDED PDF HELPER ENGINE) ---
+  Future<void> _printKaprodiPdf(String rpsId) async {
+    try {
+      // 1. Ambil data detail lengkap dokumen RPS master
+      final fullData = await rpsService.getRpsDetail(rpsId);
+      // 2. Ambil data sebaran matriks CPMK & CPL kurikulum prodi
+      final mapping = await rpsService.getMappingFullForPdf(rpsId);
+      // 3. Eksekusi cetak lembar fisik via layout PDF helper
+      await PdfHelper.cetakRps(fullData, mapping);
+    } catch (e) {
+      debugPrint("Gagal memproses cetak berkas: $e");
+      if (mounted) {
+        _showCustomNotif("Gagal mencetak berkas PDF: $e", Colors.red);
+      }
+    }
+  }
+
+  // --- HELPER NOTIFIKASI KONSISTEN ---
+  void _showCustomNotif(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,7 +128,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Selamat Datang, Kaprodi", style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.7))),
+            Text("Selamat Datang, Kaprodi", style: const TextStyle(fontSize: 12, color: Colors.white70)),
             Text(
               user?.userMetadata?['nama'] ?? "Admin Prodi",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -112,9 +143,9 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           children: [
             Container(
               height: 40,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: primaryColor,
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
               ),
             ),
             
@@ -125,13 +156,12 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
               child: Row(
                 children: [
                   _buildStatCard("Review", _stats['pending'].toString(), Colors.orange),
-                  _buildStatCard("Mata Kuliah", _stats['mk'].toString(), Colors.blue),
+                  _buildStatCard("Mata Kuliah", _stats['mk'].toString(), primaryColor),
                   _buildStatCard("CPL Prodi", _stats['cpl'].toString(), Colors.purple),
                 ],
               ),
             ),
 
-            // --- TAMBAHAN SEARCH BAR ---
             _buildSearchBar(),
             
             const Padding(
@@ -153,7 +183,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                 }
                 final listReview = snapshot.data ?? [];
                 
-                // --- LOGIKA FILTER SEARCH ---
                 final filteredList = listReview.where((rps) {
                   final namaMk = (rps['mata_kuliah']?['nama_mk'] ?? '').toString().toLowerCase();
                   final namaDosen = (rps['users']?['nama'] ?? '').toString().toLowerCase();
@@ -185,7 +214,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  // --- WIDGET SEARCH BAR ---
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 20, 16, 10),
@@ -194,22 +222,20 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: TextField(
         onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           hintText: "Cari Mata Kuliah atau Dosen...",
-          hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+          hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
           border: InputBorder.none,
           icon: Icon(Icons.search_rounded, color: primaryColor),
         ),
       ),
     );
   }
-
-  // --- UI COMPONENTS LAINNYA (UTUH DARI POLESAN SEBELUMNYA) ---
 
   Widget _buildStatCard(String label, String count, Color color) {
     return Expanded(
@@ -241,7 +267,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 5))],
         ),
         child: Row(
           children: [
@@ -296,7 +322,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
         onTap: () {
@@ -305,7 +331,7 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
             MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rps['id'].toString(), isKaprodi: true)),
           ).then((_) => _refreshData());
         },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        contentPadding: const EdgeInsets.only(left: 15, right: 5, top: 5, bottom: 5),
         leading: CircleAvatar(
           backgroundColor: statusColor.withOpacity(0.1),
           child: Icon(Icons.description_outlined, color: statusColor, size: 22),
@@ -322,7 +348,23 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
             _buildSmallStatusChip(status, statusColor),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // --- KONDISI AMAN: TOMBOL HANYA AKTIF MUNCUL UNTUK YANG APPROVED/DISETUJUI ---
+            if (status == 'approved')
+              IconButton(
+                icon: const Icon(Icons.print_rounded, color: primaryColor, size: 22),
+                tooltip: 'Cetak RPS',
+                onPressed: () async {
+                  _showCustomNotif("Mempersiapkan berkas PDF...", primaryColor);
+                  // Jalankan fungsi cetak gabungan dari layout PdfHelper Dosen
+                  await _printKaprodiPdf(rps['id'].toString());
+                },
+              ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
@@ -339,14 +381,14 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
+        padding: EdgeInsets.all(40.0),
         child: Column(
           children: [
-            Icon(Icons.inbox_rounded, size: 50, color: Colors.grey.shade300),
-            const SizedBox(height: 10),
-            const Text("Tidak ada antrean RPS", style: TextStyle(color: Colors.grey, fontSize: 13)),
+            Icon(Icons.inbox_rounded, size: 50, color: Color(0xFFD6D6D6)),
+            SizedBox(height: 10),
+            Text("Tidak ada antrean RPS", style: TextStyle(color: Colors.grey, fontSize: 13)),
           ],
         ),
       ),
@@ -359,19 +401,19 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
       child: Column(
         children: [
           UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: primaryColor),
+            decoration: const BoxDecoration(color: primaryColor),
             currentAccountPicture: Container(
               decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
               child: CircleAvatar(
                 backgroundColor: Colors.white,
                 backgroundImage: user?.userMetadata?['avatar_url'] != null ? NetworkImage(user!.userMetadata?['avatar_url']) : null,
-                child: user?.userMetadata?['avatar_url'] == null ? Icon(Icons.admin_panel_settings, color: primaryColor, size: 40) : null,
+                child: user?.userMetadata?['avatar_url'] == null ? const Icon(Icons.admin_panel_settings, color: primaryColor, size: 40) : null,
               ),
             ),
             accountName: Text(user?.userMetadata?['nama'] ?? "Kaprodi", style: const TextStyle(fontWeight: FontWeight.bold)),
             accountEmail: Text(user?.email ?? ""),
           ),
-          _buildDrawerItem(Icons.book_outlined, "Data Mata Kuliah", Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData())),
+          _buildDrawerItem(Icons.book_outlined, "Data Mata Kuliah", primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData())),
           _buildDrawerItem(Icons.assignment_turned_in_outlined, "Data CPL Prodi", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData())),
           _buildDrawerItem(Icons.people_outline, "Data Dosen", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()))),
           _buildDrawerItem(Icons.account_tree_outlined, "Set Standar CPL MK", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()))),

@@ -10,7 +10,10 @@ class ManageDosenPage extends StatefulWidget {
 
 class _ManageDosenPageState extends State<ManageDosenPage> {
   final rpsService = RpsService();
-  final primaryColor = Colors.indigo.shade900;
+  
+  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
+  static const Color primaryColor = Color(0xFF00A896);
+  
   String _searchQuery = "";
   bool _isRegistering = false;
 
@@ -27,19 +30,19 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
     super.dispose();
   }
 
-  // --- POLESAN NOTIFIKASI ---
+  // --- POLESAN NOTIFIKASI KONSISTEN ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
-  // --- UI DIALOG TAMBAH DOSEN (LOGIKA UTUH) ---
+  // --- UI DIALOG TAMBAH DOSEN (LOGIKA UTUH 100%) ---
   void _showAddDosenDialog() {
     showDialog(
       context: context,
@@ -47,11 +50,11 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
+          title: const Row(
             children: [
               Icon(Icons.person_add_rounded, color: primaryColor),
               const SizedBox(width: 10),
-              const Text("Daftarkan Dosen", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text("Daftarkan Dosen", style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
           content: SingleChildScrollView(
@@ -68,7 +71,7 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
                   decoration: InputDecoration(
                     labelText: "Nama Lengkap & Gelar",
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.badge_outlined),
+                    prefixIcon: const Icon(Icons.badge_outlined, color: primaryColor),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                   ),
@@ -79,7 +82,7 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
                   decoration: InputDecoration(
                     labelText: "Email Institusi",
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.email_outlined),
+                    prefixIcon: const Icon(Icons.email_outlined, color: primaryColor),
                     filled: true,
                     fillColor: Colors.grey.shade50,
                   ),
@@ -91,7 +94,7 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
                   decoration: InputDecoration(
                     labelText: "Password Default",
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock_outline, color: primaryColor),
                     helperText: "Minimal 6 karakter",
                     filled: true,
                     fillColor: Colors.grey.shade50,
@@ -167,12 +170,12 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
       ),
       body: Column(
         children: [
-          // --- POLESAN SEARCH BAR AREA ---
+          // --- SEARCH BAR AREA ---
           Container(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
             child: Container(
@@ -181,13 +184,13 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: TextField(
                 onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: "Cari nama dosen...",
-                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                  hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                   border: InputBorder.none,
                   icon: Icon(Icons.search_rounded, color: primaryColor),
                 ),
@@ -247,7 +250,7 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
         border: Border.all(color: Colors.grey.shade100),
       ),
       child: ListTile(
@@ -255,7 +258,7 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
         leading: CircleAvatar(
           radius: 25,
           backgroundColor: primaryColor.withOpacity(0.1),
-          child: Icon(Icons.person_rounded, color: primaryColor, size: 30),
+          child: const Icon(Icons.person_rounded, color: primaryColor, size: 30),
         ),
         title: Text(
           dosen['nama'] ?? 'Tanpa Nama', 
@@ -276,26 +279,64 @@ class _ManageDosenPageState extends State<ManageDosenPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: const Color(0xFFF0F7FF),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.blue.shade100),
+                border: Border.all(color: primaryColor.withOpacity(0.2)),
               ),
-              child: const Text("DOSEN PENGAMPU", style: TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.bold)),
+              child: const Text("DOSEN PENGAMPU", style: TextStyle(color: primaryColor, fontSize: 9, fontWeight: FontWeight.bold)),
             ),
           ],
+        ),
+        // --- FITUR BARU: TOMBOL HAPUS DATA DOSEN ---
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 24),
+          onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                title: const Text("Hapus Data Dosen?"),
+                content: Text("Apakah Anda yakin ingin menghapus data struktural dosen \"${dosen['nama'] ?? 'Tanpa Nama'}\"? Tindakan ini tidak dapat dibatalkan."),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Batal"),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text("Hapus", style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+
+            if (confirm == true) {
+              try {
+                // Memanggil fungsi delete dari rpsService menggunakan ID Dosen
+                await rpsService.deleteDosen(dosen['id']);
+                if (mounted) {
+                  _showCustomNotif("Data Dosen Berhasil Dihapus", Colors.green);
+                  setState(() {}); // Merefresh FutureBuilder
+                }
+              } catch (e) {
+                if (mounted) _showCustomNotif("Gagal menghapus dosen: $e", Colors.red);
+              }
+            }
+          },
         ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_search_rounded, size: 80, color: Colors.grey.shade200),
-          const SizedBox(height: 10),
-          const Text("Dosen tidak ditemukan.", style: TextStyle(color: Colors.grey)),
+          Icon(Icons.person_search_rounded, size: 80, color: Color(0xFFD6D6D6)),
+          SizedBox(height: 10),
+          Text("Dosen tidak ditemukan.", style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
