@@ -345,7 +345,28 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           children: [
             Text("Oleh: ${rps['users']?['nama'] ?? '-'}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 8),
-            _buildSmallStatusChip(status, statusColor),
+            // --- MENAMPILKAN ICON NOTIF REVISI DI SEBELAH CHIP STATUS ---
+            Row(
+              children: [
+                _buildSmallStatusChip(status, statusColor),
+                if (status == 'revisi' && rps['catatan'] != null)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.comment_rounded, size: 14, color: Colors.red),
+                  ),
+              ],
+            ),
+            // --- MENAMPILKAN TEKS CATATAN REVISI JIKA ADA ---
+            if (status == 'revisi' && rps['catatan'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  "Catatan: ${rps['catatan']}",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Colors.red, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+                ),
+              ),
           ],
         ),
         trailing: Row(

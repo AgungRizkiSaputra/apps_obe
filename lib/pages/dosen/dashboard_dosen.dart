@@ -299,7 +299,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
 
   Widget _buildRpsCard(Map<String, dynamic> rps) {
     final String rpsId = rps['id'].toString();
-    final String status = rps['status'];
+    final String status = (rps['status'] ?? '').toString();
     final bool isSelected = _selectedRpsIds.contains(rpsId);
 
     return Container(
@@ -324,6 +324,31 @@ class _DashboardDosenState extends State<DashboardDosen> {
             Text("Semester ${rps['semester']} • TA ${rps['tahun_ajaran']}", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
             const SizedBox(height: 10),
             _buildStatusChip(status),
+            
+            // --- FITUR YANG KEMBALI: MENAMPILKAN KOTAK NOTIFIKASI JIKA ADA CATATAN REVISI DARI KAPRODI ---
+            if (status == 'revisi' && rps['catatan'] != null)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.red.shade100),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: Colors.red.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Catatan Kaprodi: ${rps['catatan']}",
+                        style: TextStyle(fontSize: 12, color: Colors.red.shade900, fontWeight: FontWeight.w500, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
         trailing: _isSelectionMode 
