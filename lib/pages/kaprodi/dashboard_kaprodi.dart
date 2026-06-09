@@ -8,6 +8,7 @@ import '../../shared/detail_rps_page.dart';
 import '../auth/login_page.dart';
 import 'manage_mk_page.dart';
 import 'manage_dosen_page.dart';
+import 'manage_cpmk_page.dart'; // --- IMPORT HALAMAN BARU MASTER CPMK ---
 import 'package:fl_chart/fl_chart.dart';
 import 'profile_kaprodi_page.dart'; 
 
@@ -90,11 +91,8 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
   // --- LOGIKA CETAK PDF MANDIRI KAPRODI (UTUH DENGAN EMBEDDED PDF HELPER ENGINE) ---
   Future<void> _printKaprodiPdf(String rpsId) async {
     try {
-      // 1. Ambil data detail lengkap dokumen RPS master
       final fullData = await rpsService.getRpsDetail(rpsId);
-      // 2. Ambil data sebaran matriks CPMK & CPL kurikulum prodi
       final mapping = await rpsService.getMappingFullForPdf(rpsId);
-      // 3. Eksekusi cetak lembar fisik via layout PDF helper
       await PdfHelper.cetakRps(fullData, mapping);
     } catch (e) {
       debugPrint("Gagal memproses cetak berkas: $e");
@@ -345,7 +343,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           children: [
             Text("Oleh: ${rps['users']?['nama'] ?? '-'}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 8),
-            // --- MENAMPILKAN ICON NOTIF REVISI DI SEBELAH CHIP STATUS ---
             Row(
               children: [
                 _buildSmallStatusChip(status, statusColor),
@@ -356,7 +353,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
                   ),
               ],
             ),
-            // --- MENAMPILKAN TEKS CATATAN REVISI JIKA ADA ---
             if (status == 'revisi' && rps['catatan'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -372,14 +368,12 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- KONDISI AMAN: TOMBOL HANYA AKTIF MUNCUL UNTUK YANG APPROVED/DISETUJUI ---
             if (status == 'approved')
               IconButton(
                 icon: const Icon(Icons.print_rounded, color: primaryColor, size: 22),
                 tooltip: 'Cetak RPS',
                 onPressed: () async {
                   _showCustomNotif("Mempersiapkan berkas PDF...", primaryColor);
-                  // Jalankan fungsi cetak gabungan dari layout PdfHelper Dosen
                   await _printKaprodiPdf(rps['id'].toString());
                 },
               ),
@@ -400,6 +394,8 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
       ),
     );
   }
+
+  Widget _buildElenaState() => _buildEmptyState();
 
   Widget _buildEmptyState() {
     return const Center(
@@ -436,6 +432,10 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
           ),
           _buildDrawerItem(Icons.book_outlined, "Data Mata Kuliah", primaryColor, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageMkPage())).then((_) => _refreshData())),
           _buildDrawerItem(Icons.assignment_turned_in_outlined, "Data CPL Prodi", Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCplPage())).then((_) => _refreshData())),
+          
+          // --- FIX TAMBAHAN FITUR: MENYISIPKAN ITEM MENU DATA MASTER CPMK BARU DI SIDEBAR KAPRODI ---
+          _buildDrawerItem(Icons.bookmark_added_outlined, "Data CPMK Prodi", const Color(0xFF00A896), () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageCpmkPage())).then((_) => _refreshData())),
+          
           _buildDrawerItem(Icons.people_outline, "Data Dosen", Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageDosenPage()))),
           _buildDrawerItem(Icons.account_tree_outlined, "Set Standar CPL MK", Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SetStandarMappingPage()))),
           const Divider(),

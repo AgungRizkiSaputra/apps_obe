@@ -18,8 +18,21 @@ class _ManageMkPageState extends State<ManageMkPage> {
   final _namaController = TextEditingController();
   final _sksController = TextEditingController();
   final _semesterController = TextEditingController();
+  // --- FIELD CONTROLLER BARU: UNTUK DESKRIPSI MATA KULIAH KAPRODI ---
+  final _deskripsiController = TextEditingController();
 
   void _refresh() => setState(() {});
+
+  // --- MEMBERSIHKAN MEMORI CONTROLLER AGAR ANTI-LAG / MEMORY LEAK ---
+  @override
+  void dispose() {
+    _kodeController.dispose();
+    _namaController.dispose();
+    _sksController.dispose();
+    _semesterController.dispose();
+    _deskripsiController.dispose();
+    super.dispose();
+  }
 
   // --- LOGIKA VALIDASI INPUT (UTUH 100%) ---
   bool _isValid() {
@@ -51,7 +64,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- FUNGSI TAMBAH DATA (LOGIKA UTUH) ---
+  // --- FUNGSI TAMBAH DATA (LOGIKA UTUH + SISIPAN VARIABEL BARU) ---
   void _showAddDialog() {
     _clearControllers();
     showDialog(
@@ -62,11 +75,13 @@ class _ManageMkPageState extends State<ManageMkPage> {
         onPressed: () async {
           if (!_isValid()) return;
           try {
+            // Memasukkan parameter text deskripsi ke service database
             await rpsService.addMataKuliah(
               _kodeController.text.trim(),
               _namaController.text.trim(),
               int.parse(_sksController.text),
               int.parse(_semesterController.text),
+              deskripsi: _deskripsiController.text.trim(), // Parameter baru
             );
             _handleSuccess("Berhasil menambah mata kuliah");
           } catch (e) {
@@ -77,12 +92,14 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- FUNGSI EDIT DATA (LOGIKA UTUH) ---
+  // --- FUNGSI EDIT DATA (LOGIKA UTUH + MENAMPILKAN CACHE DESKRIPSI LAMA) ---
   void _showEditDialog(Map<String, dynamic> mk) {
     _kodeController.text = mk['kode_mk']?.toString() ?? '';
     _namaController.text = mk['nama_mk']?.toString() ?? '';
     _sksController.text = mk['sks']?.toString() ?? '0';
     _semesterController.text = mk['semester']?.toString() ?? '0';
+    // Menampilkan kembali deskripsi mata kuliah lama yang ada di database gung
+    _deskripsiController.text = mk['deskripsi']?.toString() ?? '';
 
     showDialog(
       context: context,
@@ -92,12 +109,14 @@ class _ManageMkPageState extends State<ManageMkPage> {
         onPressed: () async {
           if (!_isValid()) return;
           try {
+            // Mengirim parameter data update ke rps_service
             await rpsService.updateMataKuliah(
               mk['id'],
               _kodeController.text.trim(),
               _namaController.text.trim(),
               int.parse(_sksController.text),
               int.parse(_semesterController.text),
+              deskripsi: _deskripsiController.text.trim(), // Parameter baru
             );
             _handleSuccess("Berhasil memperbarui mata kuliah");
           } catch (e) {
@@ -108,7 +127,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // --- WIDGET DIALOG REUSABLE (OPTIMASI RINGAN) ---
+  // --- WIDGET DIALOG REUSABLE (DENGAN TAMBAHAN FIELD INPUT DESKRIPSI OBE) ---
   Widget _buildMkDialog({required String title, required String buttonText, required VoidCallback onPressed}) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -117,7 +136,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDialogField(_kodeController, "Kode MK", Icons.qr_code, "Contool: MK001"),
+            _buildDialogField(_kodeController, "Kode MK", Icons.qr_code, "Contoh: MK001"),
             const SizedBox(height: 15),
             _buildDialogField(_namaController, "Nama Mata Kuliah", Icons.book, ""),
             const SizedBox(height: 15),
@@ -127,6 +146,16 @@ class _ManageMkPageState extends State<ManageMkPage> {
                 const SizedBox(width: 15),
                 Expanded(child: _buildDialogField(_semesterController, "Sem.", Icons.calendar_view_day, "", isNumber: true)),
               ],
+            ),
+            
+            // --- BOX INPUT DESKRIPSI BARU UNTUK KAPRODI (BISA DIKETIK BANYAK BARIS) ---
+            const SizedBox(height: 15),
+            _buildDialogField(
+              _deskripsiController, 
+              "Deskripsi Mata Kuliah", 
+              Icons.description_rounded, 
+              "Tuliskan sinopsis ringkasan silabus materi...",
+              maxLines: 4,
             ),
           ],
         ),
@@ -146,14 +175,26 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  Widget _buildDialogField(TextEditingController controller, String label, IconData icon, String hint, {bool isNumber = false}) {
+  // Menambahkan opsional parameter maxLines gung agar field deskripsi bisa memanjang kebawah
+  Widget _buildDialogField(
+    TextEditingController controller, 
+    String label, 
+    IconData icon, 
+    String hint, {
+    bool isNumber = false,
+    int maxLines = 1,
+  }) {
     return TextField(
       controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      maxLines: maxLines,
+      keyboardType: isNumber ? TextInputType.number : (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: primaryColor),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(bottom: 0),
+          child: Icon(icon, size: 20, color: primaryColor),
+        ),
         filled: true,
         fillColor: Colors.grey.shade50,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -167,6 +208,7 @@ class _ManageMkPageState extends State<ManageMkPage> {
     _namaController.clear();
     _sksController.clear();
     _semesterController.clear();
+    _deskripsiController.clear(); // Ikut dibersihkan saat pop up dialog tertutup
   }
 
   void _handleSuccess(String message) {

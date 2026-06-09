@@ -13,6 +13,7 @@ class PdfHelper {
     final supabase = Supabase.instance.client;
 
     final listPertemuan = (rps['rps_detail'] as List?) ?? [];
+    final String mkId = rps['mata_kuliah_id']?.toString() ?? rps['mata_kuliah']?['id']?.toString() ?? '';
 
     // --- LOGIKA QUERY BACKEND & SESSION LOGIN UTUH 100% (ANTI EROR) ---
     String namaKaprodi = "Siti Maisaroh Mustafa, S.S., M.Pd.";
@@ -50,6 +51,31 @@ class PdfHelper {
       }
     } catch (e) {
       print("DEBUG: Error total signature: $e");
+    }
+
+    // --- LOGIKA BARU: QUERY JOIN REAL-TIME UNTUK MENARIK DATA MASTER CPL BERDASARKAN ID DI RELASI ---
+    List<Map<String, dynamic>> listCplDinamis = [];
+    if (mkId.isNotEmpty) {
+      try {
+        final responseJoin = await supabase
+            .from('standar_mapping_mk')
+            .select('cpl(kode_cpl, deskripsi)')
+            .eq('mk_id', mkId);
+
+        if (responseJoin != null && responseJoin is List) {
+          for (var item in responseJoin) {
+            if (item['cpl'] != null) {
+              listCplDinamis.add({
+                'kode_cpl': item['cpl']['kode_cpl']?.toString() ?? '-',
+                'deskripsi': item['cpl']['deskripsi']?.toString() ?? '-',
+              });
+            }
+          }
+          listCplDinamis.sort((a, b) => a['kode_cpl'].compareTo(b['kode_cpl']));
+        }
+      } catch (e) {
+        print("DEBUG: Gagal memuat data CPL secara join relasi: $e");
+      }
     }
 
     pw.ImageProvider? imageDosen;
@@ -207,19 +233,31 @@ class PdfHelper {
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Deskripsi Mata Kuliah", isLabel: true),
-                    _buildCellGrid("Mata kuliah ini memberikan pengondisian akademis komprehensif bagi mahasiswa teknik informatika dalam menyusun struktur rancangan, metodologi, serta rekayasa sistem terapan berbasis luaran kurikulum OBE prodi."),
+                    _buildCellGrid(rps['mata_kuliah']?['deskripsi']?.toString() ?? 'Belum ada deskripsi mata kuliah yang disediakan oleh Kaprodi.'),
                   ],
                 ),
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Model Pembelajaran", isLabel: true),
-                    _buildCellGrid(metodeBelajarText), // --- DINAMIS SINKRON DATABASE POIN 1 ---
+                    _buildCellGrid(metodeBelajarText), 
                   ],
                 ),
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Capaian Pembelajaran\nLulusan (CPL)", isLabel: true),
-                    _buildCellGrid("• [CPL-03] (Sikap): Berkontribusi meningkatkan mutu kehidupan bermasyarakat berdasarkan Pancasila.\n• [CPL-05] (Pengetahuan): Mampu mengidentifikasi, memformulasi, dan menyelesaikan masalah rekayasa secara kritis.\n• [CPL-11] (Keterampilan): Mampu menerapkan piranti modern untuk mendukung efisiensi pengerjaan skripsi prodi."),
+                    // --- KOREKSI TOTAL: INTEGRASI LOOPING DINAMIS DATA MASTER CPL DARI SUPABASE JOIN ---
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: listCplDinamis.isEmpty
+                            ? [pw.Text("• Belum ada Standar CPL prodi yang dipetakan oleh Kaprodi untuk MK ini.", style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700))]
+                            : listCplDinamis.map((cpl) => pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 2.5),
+                                child: pw.Text("• [${cpl['kode_cpl']}] : ${cpl['deskripsi']}", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
+                              )).toList(),
+                      ),
+                    ),
                   ],
                 ),
                 pw.TableRow(
@@ -239,7 +277,7 @@ class PdfHelper {
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Penilaian", isLabel: true),
-                    _buildCellGrid(penilaianText), // --- DINAMIS SINKRON DATABASE POIN 2 ---
+                    _buildCellGrid(penilaianText), 
                   ],
                 ),
                 pw.TableRow(
@@ -254,13 +292,13 @@ class PdfHelper {
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Daftar Referensi", isLabel: true),
-                    _buildCellGrid(referensiText), // --- DINAMIS SINKRON DATABASE POIN 1 ---
+                    _buildCellGrid(referensiText), 
                   ],
                 ),
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Ambang Batas Kelulusan", isLabel: true),
-                    _buildCellGrid(ambangBatasText), // --- DINAMIS SINKRON DATABASE POIN 1 ---
+                    _buildCellGrid(ambangBatasText), 
                   ],
                 ),
                 pw.TableRow(
@@ -272,7 +310,7 @@ class PdfHelper {
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Mata Kuliah Prasyarat\n(Jika Ada)", isLabel: true),
-                    _buildCellGrid(prasyaratText), // --- DINAMIS SINKRON DATABASE POIN 1 ---
+                    _buildCellGrid(prasyaratText), 
                   ],
                 ),
               ],

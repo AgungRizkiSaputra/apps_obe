@@ -315,6 +315,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
+  // --- MODIFIKASI: PERSENAN BERHASIL DIHILANGKAN DARI HALAMAN DETAIL TAMPILAN SESUAI PERINTAH DOSPEM ---
   Widget _buildCpmkCard(Map<String, dynamic> c) {
     final mapping = (c['mapping_cpl_cpmk'] as List?) ?? [];
     return Card(
@@ -341,7 +342,8 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(6)),
-                      child: Text("${m['cpl']['kode_cpl']} (${m['bobot'] ?? 0}%)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
+                      // Kode persenan lama `(${m['bobot'] ?? 0}%)` resmi dihapus total gung biar murni ceklist kurikulum saja
+                      child: Text("${m['cpl']['kode_cpl']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text(m['cpl']['deskripsi'], style: const TextStyle(fontSize: 12, color: Colors.black87))),

@@ -48,7 +48,7 @@ class RpsService {
     required String semester,
     String? bahanKajian,
     String? metodePembelajaran,
-    String? daftarReferensi,    
+    String? daftarReferensi,        
     String? mkPrasyarat,        
     String? ambangBatas,        
   }) async {
@@ -206,28 +206,30 @@ class RpsService {
     }
   }
 
-  // Tambah MK Baru
-  Future<void> addMataKuliah(String kode, String nama, int sks, int semester) async {
+  // --- UPDATE: TAMBAH MK BARU DENGAN PARAMETER OPSIONAL DESKRIPSI MASTER ---
+  Future<void> addMataKuliah(String kode, String nama, int sks, int semester, {String? deskripsi}) async {
     try {
       await supabase.from('mata_kuliah').insert({
         'kode_mk': kode,
         'nama_mk': nama,
         'sks': sks,
         'semester': semester,
+        'deskripsi': deskripsi, // Memasukkan teks deskripsi kurikulum terpusat
       });
     } catch (e) {
       throw 'Gagal menambah MK: $e';
     }
   }
 
-  // Edit Mata Kuliah
-  Future<void> updateMataKuliah(String id, String kode, String nama, int sks, int semester) async {
+  // --- UPDATE: EDIT MATA KULIAH DENGAN PARAMETER OPSIONAL DESKRIPSI MASTER ---
+  Future<void> updateMataKuliah(String id, String kode, String nama, int sks, int semester, {String? deskripsi}) async {
     try {
       await supabase.from('mata_kuliah').update({
         'kode_mk': kode,
         'nama_mk': nama,
         'sks': sks,
         'semester': semester,
+        'deskripsi': deskripsi, // Memperbarui teks deskripsi kurikulum terpusat
       }).eq('id', id);
     } catch (e) {
       throw 'Gagal memperbarui MK: $e';
@@ -309,7 +311,7 @@ class RpsService {
     }
   }
 
-  // 14. Ambil Data Semua Dosen
+  // 14. Data Semua Dosen
   Future<List<Map<String, dynamic>>> getAllDosen() async {
     try {
       final response = await supabase
@@ -520,6 +522,33 @@ class RpsService {
       }
     } catch (e) {
       throw 'Gagal mendaftarkan dosen: $e';
+    }
+  }
+
+  // --- FUNGSI MASTER: AMBIL SEMUA DATA MASTER CPMK JOIN MATA KULIAH ---
+  // --- FIX EROR: SEKARANG KUERI MENEMBAK TEPAT KE TABEL BARU 'master_cpmk' ---
+  Future<List<Map<String, dynamic>>> getAllMasterCpmk() async {
+    try {
+      final response = await supabase
+          .from('master_cpmk') // ← Diubah dari 'cpmk' menjadi 'master_cpmk'
+          .select('*, mata_kuliah(nama_mk)')
+          .order('kode_cpmk', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      throw 'Gagal mengambil master CPMK: $e';
+    }
+  }
+
+  // --- FIX EROR: PROSES INSERT DATA JGA MENEMBAK KE TABEL BARU 'master_cpmk' ---
+  Future<void> addMasterCpmk(String kode, String deskripsi, String mkId) async {
+    try {
+      await supabase.from('master_cpmk').insert({ // ← Diubah dari 'cpmk' menjadi 'master_cpmk'
+        'kode_cpmk': kode,
+        'deskripsi': deskripsi,
+        'mata_kuliah_id': mkId,
+      });
+    } catch (e) {
+      throw 'Gagal menambah master CPMK: $e';
     }
   }
 }
