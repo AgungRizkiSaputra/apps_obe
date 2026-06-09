@@ -244,6 +244,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
               if (val == 'profil') Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())).then((_) => _refreshData());
               if (val == 'logout') _handleLogout();
             },
+            constraints: const BoxConstraints(),
             itemBuilder: (context) => [
               const PopupMenuItem<String>(
                 value: 'pilih', 
@@ -325,7 +326,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
             const SizedBox(height: 10),
             _buildStatusChip(status),
             
-            // --- FITUR YANG KEMBALI: MENAMPILKAN KOTAK NOTIFIKASI JIKA ADA CATATAN REVISI DARI KAPRODI ---
+            // --- TAMPILAN KOTAK NOTIFIKASI JIKA ADA CATATAN REVISI DARI KAPRODI ---
             if (status == 'revisi' && rps['catatan'] != null)
               Container(
                 margin: const EdgeInsets.only(top: 12),
@@ -358,7 +359,11 @@ class _DashboardDosenState extends State<DashboardDosen> {
           if (_isSelectionMode) {
             setState(() => isSelected ? _selectedRpsIds.remove(rpsId) : _selectedRpsIds.add(rpsId));
           } else {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rpsId)));
+            // --- FIX TERAKURAT: TAMBAHKAN .then((_) => _refreshData()) AGAR KETIKA BACK LANGSUNG RE-FETCH DATABASE ---
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rpsId))
+            ).then((_) => _refreshData());
           }
         },
       ),
@@ -414,7 +419,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
 
   // --- INDIKATOR CETAK INTERAKTIF DENGAN NOTIFIKASI BERLAPIS ---
   Future<void> _printPdf(String rpsId, Map<String, dynamic> rps) async {
-    // 1. Memunculkan Dialog Loading Pemroses Data (Anti-freeze)
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -441,10 +445,8 @@ class _DashboardDosenState extends State<DashboardDosen> {
       
       if (mounted) Navigator.pop(context); // Tutup Dialog Loading
 
-      // 2. Tembak ke fungsi cetak di PdfHelper
       await PdfHelper.cetakRps(fullData, mapping);
 
-      // 3. Memunculkan Snackbar Notifikasi Sukses Setelah Berhasil Mengunduh/Buka
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -455,7 +457,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
         );
       }
     } catch (e) { 
-      if (mounted) Navigator.pop(context); // Pastikan dialog tertutup jika error
+      if (mounted) Navigator.pop(context); 
       debugPrint(e.toString()); 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

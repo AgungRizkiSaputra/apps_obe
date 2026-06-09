@@ -40,19 +40,34 @@ class RpsService {
     }
   }
 
-  // 3. Logika Buat RPS Baru 
+  // 3. Logika Buat RPS Baru (AUTOMATION UPDATE: OTOMATIS MENGUNCI BOBOT PENILAIAN KOMPONEN 100%)
   Future<Map<String, dynamic>> createRps({
     required String mkId,
     required String dosenId,
     required String tahunAjaran,
     required String semester,
+    String? bahanKajian,
+    String? metodePembelajaran,
+    String? daftarReferensi,    
+    String? mkPrasyarat,        
+    String? ambangBatas,        
   }) async {
     try {
+      // --- NILAI STANDAR BAKU KOMPONEN PENILAIAN KAMPUS (OTOMATIS DIKUNCI 100%) ---
+      const String penilaianStandarKampus = 
+          "Partisipasi (Kehadiran): 10% | Unjuk Kerja (Perilaku): 5% | Observasi (Tugas Mandiri/Kelompok): 20% | Tes Lisan (Formatif/Kuis): 10% | Tes Tulis (UTS): 25% | Tes Tulis (UAS): 30% (Total Akumulasi: 100%)";
+
       final response = await supabase.from('rps').insert({
         'mata_kuliah_id': mkId,
         'dosen_id': dosenId,
         'tahun_ajaran': tahunAjaran,
         'semester': semester,
+        'bahan_kajian': bahanKajian,
+        'metode_pembelajaran': metodePembelajaran, 
+        'daftar_referensi': daftarReferensi,       
+        'mk_prasyarat': mkPrasyarat,               
+        'ambang_batas': ambangBatas,               
+        'penilaian': penilaianStandarKampus, // --- OTOMATIS MASUK KE KOLOM BARU SUPABASE ---
         'status': 'draft', 
       }).select('*, mata_kuliah(nama_mk)').single();
 
@@ -342,13 +357,13 @@ class RpsService {
   // 17. Fungsi untuk mengambil detail mapping (CPMK & CPL) khusus untuk Cetak PDF
   Future<List<Map<String, dynamic>>> getMappingFullForPdf(String rpsId) async {
     final res = await supabase.from('cpmk').select('''
-          id, 
-          deskripsi,
-          mapping_cpl_cpmk ( 
-            bobot, 
-            cpl ( kode_cpl, deskripsi ) 
-          )
-        ''').eq('rps_id', rpsId);
+        id, 
+        deskripsi,
+        mapping_cpl_cpmk ( 
+          bobot, 
+          cpl ( kode_cpl, deskripsi ) 
+        )
+      ''').eq('rps_id', rpsId);
     return List<Map<String, dynamic>>.from(res);
   }
 
@@ -430,11 +445,8 @@ class RpsService {
   }
 
   // Fungsi hapus dosen
-  // --- GANTI FUNGSI deleteDosen KAMU DENGAN INI BIAR APPLIKASI SUPER RINGAN ---
   Future<void> deleteDosen(String dosenId) async {
     try {
-      // Kita panggil fungsi SQL pusat yang sudah dibuat di Supabase tadi
-      // Cara ini 100% aman dari kuncian RLS dan Foreign Key, serta hemat memori RAM!
       await supabase.rpc(
         'soft_delete_dosen_by_id',
         params: {'dosen_id_input': dosenId},
@@ -489,17 +501,15 @@ class RpsService {
     required String nama,
   }) async {
     try {
-      // 1. Daftarkan ke Supabase Auth
       final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
         data: {
           'nama': nama,
-          'role': 'dosen', // Tandai sebagai dosen
+          'role': 'dosen',
         },
       );
 
-      // 2. Jika berhasil, pastikan data masuk ke tabel 'users' kita
       if (res.user != null) {
         await supabase.from('users').insert({
           'id': res.user!.id,
@@ -512,7 +522,4 @@ class RpsService {
       throw 'Gagal mendaftarkan dosen: $e';
     }
   }
-
-  
-
 }

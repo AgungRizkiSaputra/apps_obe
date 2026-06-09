@@ -24,7 +24,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     _initData();
   }
 
-  // --- LOGIKA INIT DATA (UTUH 100%) ---
+  // --- LOGIKA INIT DATA (UTUH 100% + DIKEMBANGKAN DENGAN FIELD INSTRUMEN OBE) ---
   Future<void> _initData() async {
     try {
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
@@ -42,6 +42,13 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
             'materi_controller': TextEditingController(text: match['kemampuan_akhir'] ?? ''),
             'metode_controller': TextEditingController(text: match['metode_pembelajaran'] ?? ''),
             'bobot_controller': TextEditingController(text: (match['bobot_nilai'] ?? 0).toString()),
+            // --- FIELD CONTROLLER BARU POIN 3 MATRIKS OBE ---
+            'pengalaman_controller': TextEditingController(
+              text: match['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.'
+            ),
+            'indikator_controller': TextEditingController(
+              text: match['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik'
+            ),
           };
         });
         _isLoading = false;
@@ -51,7 +58,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     }
   }
 
-  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF POLESAN) ---
+  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF POLESAN & PARSING FIELD BARU) ---
   Future<void> _simpanSemua() async {
     setState(() => _isLoading = true);
     try {
@@ -62,6 +69,9 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
           'kemampuan_akhir': e['materi_controller'].text,
           'metode_pembelajaran': e['metode_controller'].text,
           'bobot_nilai': int.tryParse(e['bobot_controller'].text) ?? 0,
+          // --- DIPETAKAN MULUS KE MAP UNTUK SERVICE DATABASE ---
+          'pengalaman_belajar': e['pengalaman_controller'].text,
+          'indikator_penilaian': e['indikator_controller'].text,
         };
       }).toList();
 
@@ -195,6 +205,25 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
                   icon: Icons.psychology_rounded,
                 ),
                 const SizedBox(height: 15),
+                
+                // --- KELOMPOK FIELD INPUT BARU UNTUK POIN 3 ---
+                _buildField(
+                  controller: item['pengalaman_controller'],
+                  label: "Pengalaman Belajar Mahasiswa",
+                  hint: "Aktivitas nyata mahasiswa di kelas...",
+                  icon: Icons.accessibility_new_rounded,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 15),
+                _buildField(
+                  controller: item['indikator_controller'],
+                  label: "Indikator Penilaian Dosen",
+                  hint: "Tolok ukur kriteria penilaian...",
+                  icon: Icons.assignment_turned_in_rounded,
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 15),
+
                 _buildField(
                   controller: item['bobot_controller'],
                   label: "Bobot Nilai (%)",

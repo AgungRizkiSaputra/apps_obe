@@ -32,16 +32,17 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     });
   }
 
-  // --- LOGIKA UPDATE STATUS (UTUH 100%) ---
+  // --- LOGIKA UPDATE STATUS: SINKRONISASI STATE AKURAT (ANTI PERBEDAAN DATA) ---
   Future<void> _updateStatus(String status, {String? catatan}) async {
     try {
       await rpsService.updateStatusRps(widget.rpsId, status, catatan: catatan);
       if (mounted) {
-        _showCustomNotif("Berhasil mengubah status ke $status", Colors.green);
-        Navigator.pop(context);
+        _showCustomNotif("Berhasil mengubah status dokumen!", Colors.green);
+        // Jangan langsung di-pop gung, refresh data local biar UI detailnya ikut berubah real-time!
+        _initData(); 
       }
     } catch (e) {
-      if (mounted) _showCustomNotif("Gagal: $e", Colors.red);
+      if (mounted) _showCustomNotif("Gagal memperbarui status: $e", Colors.red);
     }
   }
 
@@ -57,20 +58,20 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- DIALOG REVISI (UTUH) ---
+  // --- DIALOG REVISI (KAPRODI MENEKAN TOMBOL REVISI JIKA MEMERLUKAN PERBAIKAN) ---
   void _showRevisiDialog() {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Catatan Revisi", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Catatan Revisi Akademik", style: TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           maxLines: 4,
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-            hintText: "Berikan masukan perbaikan untuk dosen...",
+            hintText: "Berikan masukan instrumen revisi untuk dosen pengampu...",
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
@@ -82,7 +83,10 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
               backgroundColor: Colors.orange,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () => _updateStatus('revisi', catatan: controller.text),
+            onPressed: () {
+              Navigator.pop(context); // Tutup dialognya dulu
+              _updateStatus('revisi', catatan: controller.text);
+            },
             child: const Text("Kirim Revisi", style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -113,7 +117,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
           final mk = data['mata_kuliah'];
           final listCpmk = (data['cpmk'] as List?) ?? [];
           final listPertemuan = (data['rps_detail'] as List?) ?? [];
-          final status = data['status'];
+          final status = data['status'] ?? 'draft';
 
           return Column(
             children: [
@@ -130,6 +134,10 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
+                    // Tampilan Banner Catatan Jika Berkas Berstatus Revisi
+                    if (status == 'revisi' && data['catatan'] != null)
+                      _buildCatatanRevisiBanner(data['catatan']),
+
                     // --- SECTION 1: INFO MATA KULIAH ---
                     _buildSectionHeader("Informasi Mata Kuliah", Icons.account_balance_rounded),
                     Container(
@@ -149,25 +157,26 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                           _buildNewInfoRow(Icons.calendar_month, "Semester", "${mk?['semester'] ?? '-'} (${data['semester'] ?? '-'})"),
                           _buildNewInfoRow(Icons.person, "Dosen", data['users']?['nama'] ?? '-'),
                           _buildNewInfoRow(Icons.history_edu, "Tahun", data['tahun_ajaran'] ?? '-'),
+                          _buildStatusInfoRow(status), // Tampilan status yang sudah diselaraskan prodi
                         ],
                       ),
                     ),
                     const SizedBox(height: 25),
 
-                    // --- TOMBOL ATUR PERTEMUAN (DOSEN ONLY) ---
-                    if (!widget.isKaprodi)
+                    // Tombol Aksi Input Data Rencana Mingguan Dosen
+                    if (!widget.isKaprodi && (status == 'draft' || status == 'revisi'))
                       _buildDosenAction(context),
 
                     // --- SECTION 2: CPMK ---
                     _buildSectionHeader("Capaian Pembelajaran (CPMK)", Icons.verified_user_rounded),
-                    if (listCpmk.isEmpty) _buildEmptyState("Belum ada data CPMK.")
+                    if (listCpmk.isEmpty) _buildEmptyState("Belum ada data CPMK prodi.")
                     else ...listCpmk.map((c) => _buildCpmkCard(c)),
 
                     const SizedBox(height: 25),
 
                     // --- SECTION 3: RENCANA PERTEMUAN ---
                     _buildSectionHeader("Rencana Pertemuan", Icons.view_timeline_rounded),
-                    if (listPertemuan.isEmpty) _buildEmptyState("Belum ada rencana pertemuan.")
+                    if (listPertemuan.isEmpty) _buildEmptyState("Belum ada rencana pertemuan mingguan.")
                     else ...listPertemuan.map((p) => _buildPertemuanCard(p)),
                     
                     const SizedBox(height: 40),
@@ -175,7 +184,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                 ),
               ),
               
-              // --- BUTTON ACTIONS (KAPRODI ONLY) ---
+              // --- BUTTON ACTIONS: HANYA MUNCUL JIKA KAPRODI MEMERIKSA STATUS WAITING APPROVAL ---
               if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision'))
                 _buildKaprodiActions(),
             ],
@@ -207,9 +216,75 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         children: [
           Icon(icon, size: 18, color: Colors.grey),
           const SizedBox(width: 12),
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
+          SizedBox(width: 95, child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
           const Text(": ", style: TextStyle(color: Colors.grey)),
           Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+        ],
+      ),
+    );
+  }
+
+  // --- SINKRONISASI PENAMAAN STATUS SESUAI PARAMETER AKADEMIK ---
+  Widget _buildStatusInfoRow(String status) {
+    Color statusColor = Colors.grey;
+    String statusLabel = status;
+
+    if (status == 'draft') { 
+      statusColor = Colors.blue; 
+      statusLabel = "Draft (Belum Dikirim)"; 
+    } else if (status == 'waiting_approval' || status == 'waiting_approval_revision') { 
+      statusColor = Colors.orange; 
+      statusLabel = "Waiting Approval"; // Sesuai aturan: Baru ngirim itu waiting approval, bukan pending
+    } else if (status == 'revisi') { 
+      statusColor = Colors.red; 
+      statusLabel = "Perlu Revisi Kaprodi"; 
+    } else if (status == 'approved') { 
+      statusColor = Colors.green; 
+      statusLabel = "Approved (Terkunci Resmi)"; 
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 18, color: Colors.grey),
+          const SizedBox(width: 12),
+          const SizedBox(width: 95, child: Text("Status Dokumen", style: TextStyle(color: Colors.grey, fontSize: 13))),
+          const Text(": ", style: TextStyle(color: Colors.grey)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+            child: Text(statusLabel, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: statusColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCatatanRevisiBanner(String catatan) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.assignment_returned_rounded, color: Colors.orange, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Catatan Perbaikan Kaprodi:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange)),
+                const SizedBox(height: 4),
+                Text(catatan, style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.4)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -282,23 +357,66 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
 
   Widget _buildPertemuanCard(Map<String, dynamic> p) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white, 
         borderRadius: BorderRadius.circular(15), 
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFF0F7FF), 
-          child: Text("${p['minggu_ke']}", style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: const Color(0xFFF0F7FF), 
+                  child: Text("${p['minggu_ke']}", style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+                const SizedBox(width: 10),
+                Text("Minggu Ke-${p['minggu_ke']}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(20)),
+                  child: Text("Bobot: ${p['bobot_nilai']}%", style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ],
+            ),
+            const Divider(height: 20, color: Color(0xFFF5F5F5)),
+            
+            _buildDetailFieldRow("Materi Pokok", p['kemampuan_akhir'] ?? '-'),
+            const SizedBox(height: 10),
+            _buildDetailFieldRow("Metode Belajar", p['metode_pembelajaran'] ?? '-'),
+            const SizedBox(height: 10),
+            _buildDetailFieldRow("Pengalaman", p['pengalaman_belajar'] ?? '-'),
+            const SizedBox(height: 10),
+            _buildDetailFieldRow("Indikator", p['indikator_penilaian'] ?? '-'),
+          ],
         ),
-        title: Text(p['kemampuan_akhir'] ?? '-', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        subtitle: Text("Metode: ${p['metode_pembelajaran'] ?? '-'}\nBobot Nilai: ${p['bobot_nilai']}%", style: const TextStyle(fontSize: 12)),
       ),
     );
   }
 
+  Widget _buildDetailFieldRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 95, 
+          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+        ),
+        const Text(": ", style: TextStyle(color: Colors.grey)),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.3)),
+        ),
+      ],
+    );
+  }
+
+  // --- AKSI KAPRODI: JIKA BUTUH PERBAIKAN MENEKAN TOMBOL REVISI ---
   Widget _buildKaprodiActions() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -312,7 +430,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _showRevisiDialog,
+              onPressed: _showRevisiDialog, // Tombol revisi interaktif
               icon: const Icon(Icons.edit_note),
               label: const Text("Revisi"),
               style: OutlinedButton.styleFrom(
