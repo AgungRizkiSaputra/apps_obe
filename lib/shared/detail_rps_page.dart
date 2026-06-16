@@ -313,13 +313,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  Widget _buildVerticalLayoutDivider() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: Divider(height: 1, color: Color(0xFFF5F5F5), thickness: 1.2),
-    );
-  }
-
   Widget _buildSectionHeader(String title, IconData icon) {
     return Padding(
       padding: const EdgeInsets.only(left: 5, bottom: 12),

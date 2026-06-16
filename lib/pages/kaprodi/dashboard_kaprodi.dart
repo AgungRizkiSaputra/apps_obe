@@ -395,7 +395,6 @@ class _DashboardKaprodiState extends State<DashboardKaprodi> {
     );
   }
 
-  Widget _buildElenaState() => _buildEmptyState();
 
   Widget _buildEmptyState() {
     return const Center(

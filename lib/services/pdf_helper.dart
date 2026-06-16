@@ -63,18 +63,16 @@ class PdfHelper {
             .select('cpl(kode_cpl, deskripsi)')
             .eq('mk_id', mkId);
 
-        if (responseJoin != null && responseJoin is List) {
-          for (var item in responseJoin) {
-            if (item['cpl'] != null) {
-              listCplDinamis.add({
-                'kode_cpl': item['cpl']['kode_cpl']?.toString() ?? '-',
-                'deskripsi': item['cpl']['deskripsi']?.toString() ?? '-',
-              });
-            }
+        for (var item in responseJoin) {
+          if (item['cpl'] != null) {
+            listCplDinamis.add({
+              'kode_cpl': item['cpl']['kode_cpl']?.toString() ?? '-',
+              'deskripsi': item['cpl']['deskripsi']?.toString() ?? '-',
+            });
           }
-          listCplDinamis.sort((a, b) => a['kode_cpl'].compareTo(b['kode_cpl']));
         }
-      } catch (e) {
+        listCplDinamis.sort((a, b) => a['kode_cpl'].compareTo(b['kode_cpl']));
+            } catch (e) {
         print("DEBUG: Gagal memuat data CPL secara join relasi: $e");
       }
     }
@@ -89,15 +87,13 @@ class PdfHelper {
             .eq('rps_id', rpsIdReal)
             .order('kode_cpmk', ascending: true);
 
-        if (responseCpmkJoin != null && responseCpmkJoin is List) {
-          for (var item in responseCpmkJoin) {
-            listCpmkDinamis.add({
-              'kode_cpmk': item['kode_cpmk']?.toString() ?? 'CPMK',
-              'deskripsi': item['deskripsi']?.toString() ?? '-',
-            });
-          }
+        for (var item in responseCpmkJoin) {
+          listCpmkDinamis.add({
+            'kode_cpmk': item['kode_cpmk']?.toString() ?? 'CPMK',
+            'deskripsi': item['deskripsi']?.toString() ?? '-',
+          });
         }
-      } catch (e) {
+            } catch (e) {
         print("DEBUG: Gagal memuat data CPMK transaksi secara internal: $e");
       }
     }
@@ -466,13 +462,6 @@ class PdfHelper {
           color: isLabel ? PdfColors.black : PdfColors.grey900,
         ),
       ),
-    );
-  }
-
-  static pw.Widget _buildCell(String text, {bool isHeader = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(3),
-      child: pw.Text(text, style: pw.TextStyle(fontSize: isHeader ? 8 : 7, fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal)),
     );
   }
 }

@@ -149,7 +149,7 @@ class _MappingPageState extends State<MappingPage> {
               .eq('id', grup.selectedMasterCpmkId!)
               .single();
               
-          if (masterRow != null && masterRow['kode_cpmk'] != null) {
+          if (masterRow['kode_cpmk'] != null) {
             kodeCpmkTerverifikasi = masterRow['kode_cpmk'].toString();
           }
         }
