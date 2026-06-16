@@ -7,12 +7,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class PdfHelper {
   static Future<void> cetakRps(
     Map<String, dynamic> rps,
-    List<Map<String, dynamic>> mapping,
+    List<Map<String, dynamic>> mapping, // Tetap dipertahankan agar tidak mengubah struktur parameter fungsi awal gung
   ) async {
     final pdf = pw.Document();
     final supabase = Supabase.instance.client;
 
     final listPertemuan = (rps['rps_detail'] as List?) ?? [];
+    final String rpsIdReal = rps['id']?.toString() ?? '';
     final String mkId = rps['mata_kuliah_id']?.toString() ?? rps['mata_kuliah']?['id']?.toString() ?? '';
 
     // --- LOGIKA QUERY BACKEND & SESSION LOGIN UTUH 100% (ANTI EROR) ---
@@ -53,7 +54,7 @@ class PdfHelper {
       print("DEBUG: Error total signature: $e");
     }
 
-    // --- LOGIKA BARU: QUERY JOIN REAL-TIME UNTUK MENARIK DATA MASTER CPL BERDASARKAN ID DI RELASI ---
+    // --- LOGIKA DATA MASTER CPL BERDASARKAN ID DI RELASI ---
     List<Map<String, dynamic>> listCplDinamis = [];
     if (mkId.isNotEmpty) {
       try {
@@ -78,6 +79,39 @@ class PdfHelper {
       }
     }
 
+    // --- LOGIKA BARU KONSISTEN (MENIRU JALUR CPL PRODI): Mengambil data CPMK transaksional langsung dari database ---
+    List<Map<String, dynamic>> listCpmkDinamis = [];
+    if (rpsIdReal.isNotEmpty) {
+      try {
+        final responseCpmkJoin = await supabase
+            .from('cpmk')
+            .select('kode_cpmk, deskripsi')
+            .eq('rps_id', rpsIdReal)
+            .order('kode_cpmk', ascending: true);
+
+        if (responseCpmkJoin != null && responseCpmkJoin is List) {
+          for (var item in responseCpmkJoin) {
+            listCpmkDinamis.add({
+              'kode_cpmk': item['kode_cpmk']?.toString() ?? 'CPMK',
+              'deskripsi': item['deskripsi']?.toString() ?? '-',
+            });
+          }
+        }
+      } catch (e) {
+        print("DEBUG: Gagal memuat data CPMK transaksi secara internal: $e");
+      }
+    }
+
+    // Fallback darurat jika kueri internal kosong gung, agar PDF tidak rombeng kosong
+    if (listCpmkDinamis.isEmpty) {
+      for (var item in mapping) {
+        listCpmkDinamis.add({
+          'kode_cpmk': item['kode_cpmk']?.toString() ?? 'CPMK',
+          'deskripsi': item['deskripsi']?.toString() ?? '-',
+        });
+      }
+    }
+
     pw.ImageProvider? imageDosen;
     pw.ImageProvider? imageKaprodi;
     if (signatureUrlDosen != null && signatureUrlDosen.isNotEmpty) imageDosen = await _downloadImage(signatureUrlDosen);
@@ -89,7 +123,6 @@ class PdfHelper {
     final String sksMk = "${rps['mata_kuliah']?['sks'] ?? '0'}";
     final String semesterMk = "${rps['mata_kuliah']?['semester'] ?? '-'}";
 
-    // --- VARIABEL DINAMIS BARU POIN 1 & 2: MENARIK DATA DARI REKOR BARU SUPABASE ---
     final String metodeBelajarText = rps['metode_pembelajaran']?.toString() ?? 'Problem Based Learning (PBL), Kuliah Teori Kelas, Diskusi Kasus Kelompok, dan Praktikum Terapan Laboratorium.';
     final String referensiText = rps['daftar_referensi']?.toString() ?? '1. Kurose, J.F. & Ross, K.W. (2022). Computer Networking: A Top-Down Approach (8th ed.). Pearson.\n2. Lammle, T. (2022). CompTIA Network+ Study Guide (5th ed.). Sybex.';
     final String prasyaratText = rps['mk_prasyarat']?.toString() ?? 'KB1124 Pengantar Jaringan Komputer / Algoritma Lanjutan (Sifat: Wajib Lulus Terstruktur)';
@@ -135,7 +168,7 @@ class PdfHelper {
             pw.Center(child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
             pw.SizedBox(height: 8),
 
-            // --- 2. GRID LAYOUT KAMPUS: LEBAR KOLOM SAMA RATA & BERSTINGKAT AKURAT ---
+            // --- 2. GRID LAYOUT KAMPUS ---
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
               columnWidths: const {
@@ -225,7 +258,7 @@ class PdfHelper {
               ],
             ),
 
-            // Tabel Lanjutan Kebawah Untuk Detail Capaian Silabus RPS (SEKARANG DINAMIS)
+            // Tabel Lanjutan Kebawah Untuk Detail Capaian Silabus RPS
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
               columnWidths: const {0: pw.FixedColumnWidth(126), 1: pw.FlexColumnWidth(1)},
@@ -245,7 +278,6 @@ class PdfHelper {
                 pw.TableRow(
                   children: [
                     _buildCellGrid("Capaian Pembelajaran\nLulusan (CPL)", isLabel: true),
-                    // --- KOREKSI TOTAL: INTEGRASI LOOPING DINAMIS DATA MASTER CPL DARI SUPABASE JOIN ---
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(5),
                       child: pw.Column(
@@ -267,9 +299,18 @@ class PdfHelper {
                       padding: const pw.EdgeInsets.all(4),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: mapping.isEmpty 
+                        children: listCpmkDinamis.isEmpty 
                             ? [pw.Text("-", style: const pw.TextStyle(fontSize: 7))]
-                            : mapping.map((cpmk) => pw.Text("• [CPMK-0${mapping.indexOf(cpmk)+1}] : ${cpmk['deskripsi']}", style: const pw.TextStyle(fontSize: 7))).toList(),
+                            // --- INTEGRASI LOGIKA CPL: Membaca langsung array listCpmkDinamis hasil query internal ---
+                            : listCpmkDinamis.map((cpmk) {
+                                final String kodeCpmkAsli = cpmk['kode_cpmk']?.toString() ?? 'CPMK';
+                                final String deskripsiAsli = cpmk['deskripsi']?.toString() ?? '-';
+                                return pw.Padding(
+                                  padding: const pw.EdgeInsets.only(bottom: 2),
+                                  // Hasil cetakan dijamin 100% dinamis terikat rps_id: • [CPMK-01] : da
+                                  child: pw.Text("• [$kodeCpmkAsli] : $deskripsiAsli", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
+                                );
+                              }).toList(),
                       ),
                     ),
                   ],
@@ -343,7 +384,7 @@ class PdfHelper {
                 "150 Menit",
                 p['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.',
                 p['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik',
-                "${p['bobot_nilai']}%",
+                "0%", 
               ]).toList(),
             ),
 

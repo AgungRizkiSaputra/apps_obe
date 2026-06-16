@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/rps_service.dart';
 import '../pages/dosen/input_pertemuan_page.dart';
+import 'package:rps_obe_app/services/pdf_helper.dart';
 
 class DetailRpsPage extends StatefulWidget {
   final String rpsId;
@@ -15,9 +16,10 @@ class DetailRpsPage extends StatefulWidget {
 class _DetailRpsPageState extends State<DetailRpsPage> {
   final rpsService = RpsService();
   
-  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
   static const Color primaryColor = Color(0xFF007AFF);
   
+  // local UI state
+  bool isLoading = false;
   late Future<Map<String, dynamic>> _detailFuture;
 
   @override
@@ -32,13 +34,11 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     });
   }
 
-  // --- LOGIKA UPDATE STATUS: SINKRONISASI STATE AKURAT (ANTI PERBEDAAN DATA) ---
   Future<void> _updateStatus(String status, {String? catatan}) async {
     try {
       await rpsService.updateStatusRps(widget.rpsId, status, catatan: catatan);
       if (mounted) {
         _showCustomNotif("Berhasil mengubah status dokumen!", Colors.green);
-        // Jangan langsung di-pop gung, refresh data local biar UI detailnya ikut berubah real-time!
         _initData(); 
       }
     } catch (e) {
@@ -46,7 +46,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     }
   }
 
-  // --- POLESAN NOTIFIKASI KONSISTEN (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -58,14 +57,13 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- DIALOG REVISI (KAPRODI MENEKAN TOMBOL REVISI JIKA MEMERLUKAN PERBAIKAN) ---
   void _showRevisiDialog() {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Catatan Revisi Akademik", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Catatan Revisi Academic", style: TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: controller,
           maxLines: 4,
@@ -84,7 +82,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
-              Navigator.pop(context); // Tutup dialognya dulu
+              Navigator.pop(context); 
               _updateStatus('revisi', catatan: controller.text);
             },
             child: const Text("Kirim Revisi", style: TextStyle(color: Colors.white)),
@@ -121,7 +119,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
 
           return Column(
             children: [
-              // Header Aksen
               Container(
                 height: 20, 
                 decoration: const BoxDecoration(
@@ -134,7 +131,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // Tampilan Banner Catatan Jika Berkas Berstatus Revisi
                     if (status == 'revisi' && data['catatan'] != null)
                       _buildCatatanRevisiBanner(data['catatan']),
 
@@ -157,20 +153,21 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                           _buildNewInfoRow(Icons.calendar_month, "Semester", "${mk?['semester'] ?? '-'} (${data['semester'] ?? '-'})"),
                           _buildNewInfoRow(Icons.person, "Dosen", data['users']?['nama'] ?? '-'),
                           _buildNewInfoRow(Icons.history_edu, "Tahun", data['tahun_ajaran'] ?? '-'),
-                          _buildStatusInfoRow(status), // Tampilan status yang sudah diselaraskan prodi
+                          _buildStatusInfoRow(status), 
                         ],
                       ),
                     ),
                     const SizedBox(height: 25),
 
-                    // Tombol Aksi Input Data Rencana Mingguan Dosen
                     if (!widget.isKaprodi && (status == 'draft' || status == 'revisi'))
                       _buildDosenAction(context),
 
-                    // --- SECTION 2: CPMK ---
-                    _buildSectionHeader("Capaian Pembelajaran (CPMK)", Icons.verified_user_rounded),
-                    if (listCpmk.isEmpty) _buildEmptyState("Belum ada data CPMK prodi.")
-                    else ...listCpmk.map((c) => _buildCpmkCard(c)),
+                    // --- SECTION 2: INTEGRASI GABUNGAN CPL & CPMK (LAYOUT BARU) ---
+                    _buildSectionHeader("Capaian Pembelajaran (CPMK & CPL)", Icons.verified_user_rounded),
+                    if (listCpmk.isEmpty) 
+                      _buildEmptyState("Belum ada data pemetaan OBE prodi.")
+                    else 
+                      _buildCombinedObeCard(listCpmk),
 
                     const SizedBox(height: 25),
 
@@ -184,9 +181,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                 ),
               ),
               
-              // --- BUTTON ACTIONS: HANYA MUNCUL JIKA KAPRODI MEMERIKSA STATUS WAITING APPROVAL ---
-              if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision'))
-                _buildKaprodiActions(),
+              _buildActionBottomContainer(data, listCpmk, status),
             ],
           );
         },
@@ -194,7 +189,136 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- UI COMPONENTS HELPERS ---
+  // --- KARTU LAYOUT GABUNGAN BARU: Menampilkan CPL Sekali di Atas, Lalu CPMK Mengalir di Bawahnya ---
+  Widget _buildCombinedObeCard(List listCpmk) {
+    // Ekstraksi seluruh CPL unik dari seluruh list CPMK yang dipilih dosen gung
+    final Map<String, Map<String, dynamic>> uniqueCpls = {};
+    for (var cpmk in listCpmk) {
+      final mappings = (cpmk['mapping_cpl_cpmk'] as List?) ?? [];
+      for (var m in mappings) {
+        if (m['cpl'] != null) {
+          final String kodeCpl = m['cpl']['kode_cpl']?.toString() ?? '';
+          if (kodeCpl.isNotEmpty && !uniqueCpls.containsKey(kodeCpl)) {
+            uniqueCpls[kodeCpl] = Map<String, dynamic>.from(m['cpl']);
+          }
+        }
+      }
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade200)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. TAMPILAN KELOMPOK TARGET CPL PRODI (MUNCUL 1 KALI SAJA DI ATAS)
+            const Text("Mendukung CPL Program Studi:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.3)),
+            const SizedBox(height: 10),
+            if (uniqueCpls.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(left: 5, bottom: 5),
+                key: ValueKey('empty_cpl'),
+                child: Text("- Tidak ada relasi CPL prodi terikat -", style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey)),
+              )
+            else
+              ...uniqueCpls.values.map((cpl) => Container(
+                    key: ValueKey('cpl_row_${cpl['kode_cpl']}'),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade100)),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(6)),
+                          child: Text("${cpl['kode_cpl']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(cpl['deskripsi'] ?? '-', style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.3))),
+                      ],
+                    ),
+                  )),
+            
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: Color(0xFFF5F5F5), thickness: 1.2),
+            ),
+
+            // 2. TAMPILAN KOMPONEN INDIKATOR CPMK (MENGALIR DI BAWAHNYA LANGSUNG TANPA BOKS BARU)
+            const Text("Capaian Pembelajaran Mata Kuliah (CPMK):", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.3)),
+            const SizedBox(height: 12),
+            ...listCpmk.map((c) {
+              final String kodeCpmkAsli = c['kode_cpmk']?.toString() ?? 'CPMK-01';
+              return Padding(
+                key: ValueKey('cpmk_row_${c['id']}'),
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                      child: Text(kodeCpmkAsli, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(c['deskripsi'] ?? '-', style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4, fontSize: 13, color: Colors.black87)),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionBottomContainer(Map<String, dynamic> data, List listCpmk, String status) {
+    if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision')) {
+      return _buildKaprodiActions();
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+      color: Colors.white,
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: 46,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.print_rounded, size: 18),
+            label: const Text("CETAK DOKUMEN RPS (PDF)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            onPressed: () async {
+              final List<Map<String, dynamic>> cpmkFormatted = listCpmk.map<Map<String, dynamic>>((c) {
+                return {
+                  'kode_cpmk': c['kode_cpmk']?.toString() ?? 'CPMK',
+                  'deskripsi': c['deskripsi']?.toString() ?? '-',
+                };
+              }).toList();
+
+              await PdfHelper.cetakRps(data, cpmkFormatted);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalLayoutDivider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Divider(height: 1, color: Color(0xFFF5F5F5), thickness: 1.2),
+    );
+  }
 
   Widget _buildSectionHeader(String title, IconData icon) {
     return Padding(
@@ -224,7 +348,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- SINKRONISASI PENAMAAN STATUS SESUAI PARAMETER AKADEMIK ---
   Widget _buildStatusInfoRow(String status) {
     Color statusColor = Colors.grey;
     String statusLabel = status;
@@ -234,7 +357,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
       statusLabel = "Draft (Belum Dikirim)"; 
     } else if (status == 'waiting_approval' || status == 'waiting_approval_revision') { 
       statusColor = Colors.orange; 
-      statusLabel = "Waiting Approval"; // Sesuai aturan: Baru ngirim itu waiting approval, bukan pending
+      statusLabel = "Waiting Approval"; 
     } else if (status == 'revisi') { 
       statusColor = Colors.red; 
       statusLabel = "Perlu Revisi Kaprodi"; 
@@ -315,48 +438,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- MODIFIKASI: PERSENAN BERHASIL DIHILANGKAN DARI HALAMAN DETAIL TAMPILAN SESUAI PERINTAH DOSPEM ---
-  Widget _buildCpmkCard(Map<String, dynamic> c) {
-    final mapping = (c['mapping_cpl_cpmk'] as List?) ?? [];
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.grey.shade200)),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(c['deskripsi'] ?? '-', style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4)),
-            if (mapping.isNotEmpty) ...[
-              const Divider(height: 25),
-              const Text("Mendukung CPL Prodi:", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 10),
-              ...mapping.map((m) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10)),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(6)),
-                      // Kode persenan lama `(${m['bobot'] ?? 0}%)` resmi dihapus total gung biar murni ceklist kurikulum saja
-                      child: Text("${m['cpl']['kode_cpl']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: primaryColor)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(m['cpl']['deskripsi'], style: const TextStyle(fontSize: 12, color: Colors.black87))),
-                  ],
-                ),
-              )),
-            ]
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPertemuanCard(Map<String, dynamic> p) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -418,7 +499,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- AKSI KAPRODI: JIKA BUTUH PERBAIKAN MENEKAN TOMBOL REVISI ---
   Widget _buildKaprodiActions() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -432,7 +512,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _showRevisiDialog, // Tombol revisi interaktif
+              onPressed: _showRevisiDialog, 
               icon: const Icon(Icons.edit_note),
               label: const Text("Revisi"),
               style: OutlinedButton.styleFrom(

@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/rps_service.dart';
 
+class CpmkMappingGroup {
+  String? selectedMasterCpmkId;
+  String? selectedKodeCpmk;
+  String deskripsiCpmk;
+
+  CpmkMappingGroup({
+    this.selectedMasterCpmkId,
+    this.selectedKodeCpmk,
+    this.deskripsiCpmk = '',
+  });
+}
+
 class MappingPage extends StatefulWidget {
   final Map<String, dynamic> rpsData;
   final bool isRevision;
@@ -15,42 +27,39 @@ class MappingPage extends StatefulWidget {
 class _MappingPageState extends State<MappingPage> {
   final _rpsService = RpsService();
   final _supabase = Supabase.instance.client;
-  final _cpmkController = TextEditingController();
   
-  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
   static const Color primaryColor = Color(0xFF007AFF);
   
-  // --- PERSENAN DIHAPUS: Weight controllers tidak digunakan lagi karena dospem minta tanpa persenan ---
   List<Map<String, dynamic>> listCpl = [];
   List<String> selectedCplIds = [];
   List<String> standarCplIds = []; 
+  List<Map<String, dynamic>> listMasterCpmk = [];
   bool isLoading = false;
 
-  List<Map<String, dynamic>> listMasterCpmk = [];
-  String? selectedMasterCpmkId;
-  String? selectedKodeCpmk; 
+  List<CpmkMappingGroup> mappingGroups = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchCplDanStandar();
-    _fetchMasterCpmkProdi(); 
+    _initDataSederhana();
   }
 
-  @override
-  void dispose() {
-    _cpmkController.dispose();
-    super.dispose();
+  Future<void> _initDataSederhana() async {
+    setState(() => isLoading = true);
+    await _fetchMasterCpmkProdi();
+    await _fetchCplDanStandar();
+    setState(() => isLoading = false);
   }
 
-  // --- LOGIKA FETCH DATA MASTER CPMK PRODI (UTUH 100%) ---
+  // --- SINKRONISASI KUERI: Menarik data master acuan Kaprodi langsung dari tabel cpmk (rps_id IS NULL) ---
   Future<void> _fetchMasterCpmkProdi() async {
     try {
       final String mkId = widget.rpsData['mata_kuliah_id'].toString();
       final response = await _supabase
-          .from('master_cpmk')
+          .from('cpmk') 
           .select('*')
           .eq('mata_kuliah_id', mkId)
+          .filter('rps_id', 'is', null) // Memastikan yang ditarik hanya standar kurikulum buatan Kaprodi
           .order('kode_cpmk', ascending: true);
           
       if (mounted) {
@@ -63,30 +72,27 @@ class _MappingPageState extends State<MappingPage> {
     }
   }
 
-  // --- LOGIKA FETCH DATA CPL (UTUH 100%) ---
   Future<void> _fetchCplDanStandar() async {
-    setState(() => isLoading = true);
     try {
       final data = await _supabase.from('cpl').select().order('kode_cpl', ascending: true);
       final String mkId = widget.rpsData['mata_kuliah_id'].toString();
       final standarData = await _rpsService.getStandarCplIds(mkId);
 
-      setState(() {
-        listCpl = List<Map<String, dynamic>>.from(data);
-        standarCplIds = standarData;
+      if (mounted) {
+        setState(() {
+          listCpl = List<Map<String, dynamic>>.from(data);
+          standarCplIds = standarData;
 
-        if (!widget.isRevision) {
-          selectedCplIds = List<String>.from(standarCplIds);
-        }
-      });
+          if (!widget.isRevision) {
+            selectedCplIds = List<String>.from(standarCplIds);
+          }
+        });
+      }
     } catch (e) {
-      debugPrint("Error fetch data: $e");
-    } finally {
-      setState(() => isLoading = false);
+      debugPrint("Error fetch data CPL: $e");
     }
   }
 
-  // --- LOGIKA NOTIFIKASI CUSTOM (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -109,10 +115,14 @@ class _MappingPageState extends State<MappingPage> {
     );
   }
 
-  // --- LOGIKA SIMPAN KOMPLIT (DIBERSIHKAN DARI ATURAN WAJIB 100%) ---
   Future<void> _simpanMapping() async {
-    if (selectedMasterCpmkId == null || _cpmkController.text.isEmpty || selectedCplIds.isEmpty) {
-      _showCustomNotif("Silakan pilih Kode CPMK dan pilih minimal 1 CPL hubungannya!", Colors.orange);
+    if (mappingGroups.isEmpty) {
+      _showCustomNotif("Silakan pilih minimal 1 Kode CPMK pada pilihan di atas.", Colors.orange);
+      return;
+    }
+
+    if (selectedCplIds.isEmpty) {
+      _showCustomNotif("Silakan pilih minimal 1 target CPL Program Studi.", Colors.orange);
       return;
     }
 
@@ -120,40 +130,61 @@ class _MappingPageState extends State<MappingPage> {
     try {
       final rpsId = widget.rpsData['id'].toString();
       
-      // Karena dospem minta tanpa persenan, bobot otomatis kita set default 0 atau null di database gung gpp aman!
+      if (widget.isRevision) {
+        await _rpsService.deleteExistingMapping(rpsId);
+      }
+
       List<Map<String, dynamic>> mappingData = selectedCplIds.map((id) {
         return {'cpl_id': id, 'bobot': 0}; 
       }).toList();
 
-      if (widget.isRevision) await _rpsService.deleteExistingMapping(rpsId);
+      for (var grup in mappingGroups) {
+        // --- AMAN MANDIRI POIN UTAMA: Mengambil langsung kode_cpmk asli Kaprodi dari database berdasarkan ID ---
+        String kodeCpmkTerverifikasi = grup.selectedKodeCpmk ?? 'CPMK';
+        
+        if (grup.selectedMasterCpmkId != null) {
+          final masterRow = await _supabase
+              .from('cpmk')
+              .select('kode_cpmk')
+              .eq('id', grup.selectedMasterCpmkId!)
+              .single();
+              
+          if (masterRow != null && masterRow['kode_cpmk'] != null) {
+            kodeCpmkTerverifikasi = masterRow['kode_cpmk'].toString();
+          }
+        }
 
-      await _rpsService.saveMappingWithWeights(
-        rpsId: rpsId,
-        deskripsi: _cpmkController.text.trim(),
-        mappingData: mappingData, 
-      );
+        // Jalankan operasi insert data transaksi dosen dengan kode_cpmk yang dijamin 100% terisi aman gung
+        final insertedCpmk = await _supabase.from('cpmk').insert({
+          'rps_id': rpsId,
+          'deskripsi': grup.deskripsiCpmk.trim(),
+          'kode_cpmk': kodeCpmkTerverifikasi, // Menggunakan kode yang ditarik langsung dari master prodi
+          'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString()
+        }).select('id').single();
 
-      try {
-        await _supabase
-            .from('cpmk')
-            .update({
-              'kode_cpmk': selectedKodeCpmk,
-              'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString()
-            })
-            .eq('rps_id', rpsId)
-            .eq('deskripsi', _cpmkController.text.trim());
-      } catch (dbErr) {
-        debugPrint("Sinkronisasi kode_cpmk dilewati: $dbErr");
+        final String generatedCpmkId = insertedCpmk['id'].toString();
+
+        final List<Map<String, dynamic>> finalMapping = mappingData.map((item) {
+          return {
+            'cpmk_id': generatedCpmkId,
+            'cpl_id': item['cpl_id'],
+            'bobot': item['bobot'], 
+          };
+        }).toList();
+
+        await _supabase.from('mapping_cpl_cpmk').insert(finalMapping);
       }
 
       if (widget.isRevision) await _rpsService.tandaiRevisiSelesai(rpsId);
 
+      mappingGroups.clear();
+
       if (mounted) {
-        _showCustomNotif("Mapping OBE Berhasil Disimpan!", Colors.green);
+        _showCustomNotif("Seluruh Pemetaan Multi-CPMK Berhasil Disimpan.", Colors.green);
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) _showCustomNotif("Gagal: $e", Colors.red);
+      if (mounted) _showCustomNotif("Gagal menyimpan data: $e", Colors.red);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -161,45 +192,44 @@ class _MappingPageState extends State<MappingPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Tombol simpan sekarang selalu aktif hijau selama dosen sudah memilih item pilihan gung
-    bool isReadyToSubmit = selectedMasterCpmkId != null && selectedCplIds.isNotEmpty;
+    bool isReadyToSubmit = mappingGroups.isNotEmpty && selectedCplIds.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text(widget.isRevision ? "Revisi Mapping OBE" : "Mapping CPMK", style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.isRevision ? "Revisi Multi-Mapping OBE" : "Mapping Multi-CPMK", style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: widget.isRevision ? Colors.orange : primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
       ),
       body: isLoading && listCpl.isEmpty 
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-            children: [
-              // --- SEKARANG BERSIH: Progress bar akumulasi persenan 100% di atas sudah dihilangkan penuh ---
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionTitle("1. Pilih Kode & Deskripsi CPMK", Icons.bookmark_added_rounded),
-                      const SizedBox(height: 12),
-                      _buildCpmkDropdownInput(), 
-                      const SizedBox(height: 30),
-                      _buildSectionTitle("2. Hubungkan ke CPL Prodi (Ceklist)", Icons.checklist_rtl_rounded),
-                      const SizedBox(height: 10),
-                      ...listCpl.map((cpl) => _buildCplCard(cpl)),
-                      const SizedBox(height: 30),
-                      _buildSubmitButton(isReadyToSubmit),
-                      const SizedBox(height: 20),
-                    ],
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionTitle("1. Pilih CPMK Mata Kuliah Kurikulum", Icons.grid_view_rounded),
+                        const SizedBox(height: 12),
+                        _buildMasterCpmkChipsGrid(),
+                        
+                        const SizedBox(height: 30),
+                        
+                        _buildSectionTitle("2. Hubungkan ke CPL Prodi (Ceklist Cukup 1 Saja)", Icons.checklist_rtl_rounded),
+                        const SizedBox(height: 12),
+                        ...listCpl.map((cpl) => _buildCplCardTunggal(cpl)),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                _buildBottomActionPanel(isReadyToSubmit),
+              ],
+            ),
     );
   }
 
@@ -208,14 +238,29 @@ class _MappingPageState extends State<MappingPage> {
       children: [
         Icon(icon, color: primaryColor, size: 20),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildCpmkDropdownInput() {
+  Widget _buildMasterCpmkChipsGrid() {
+    if (listMasterCpmk.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
+        child: const Text("⚠️ Daftar master CPMK program studi belum tersedia untuk mata kuliah ini.", style: TextStyle(color: Colors.red, fontSize: 12)),
+      );
+    }
+
+    final validSelectedGroups = mappingGroups.where((grup) => 
+      grup.selectedMasterCpmkId != null && 
+      grup.selectedKodeCpmk != null && 
+      grup.selectedKodeCpmk != 'null'
+    ).toList();
+
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
@@ -225,98 +270,112 @@ class _MappingPageState extends State<MappingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          listMasterCpmk.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    "⚠️ Kaprodi belum menginput daftar master CPMK untuk Mata Kuliah ini.",
-                    style: TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500),
+          const Text("Pilih Kode CPMK (Dapat memilih lebih dari satu komponen):", style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 12),
+          
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: listMasterCpmk.map((item) {
+              final String itemId = item['id'].toString();
+              final bool isSelected = mappingGroups.any((element) => element.selectedMasterCpmkId == itemId);
+              
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      mappingGroups.removeWhere((element) => element.selectedMasterCpmkId == itemId);
+                    } else {
+                      mappingGroups.add(CpmkMappingGroup(
+                        selectedMasterCpmkId: itemId,
+                        selectedKodeCpmk: item['kode_cpmk']?.toString(),
+                        deskripsiCpmk: item['deskripsi']?.toString() ?? '',
+                      ));
+                    }
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? primaryColor : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade300, width: 1.2),
                   ),
-                )
-              : DropdownButtonFormField<String>(
-                  value: selectedMasterCpmkId,
-                  hint: const Text("-- Klik Pilih Kode CPMK Kurikulum --", style: TextStyle(fontSize: 13)),
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.qr_code, color: primaryColor, size: 20),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade100)),
-                  ),
-                  items: listMasterCpmk.map((item) {
-                    return DropdownMenuItem<String>(
-                      value: item['id'].toString(),
-                      child: Text(
-                        "${item['kode_cpmk']} : ${item['deskripsi']}",
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                        color: isSelected ? Colors.white : Colors.grey,
+                        size: 16,
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    final selectedData = listMasterCpmk.firstWhere((element) => element['id'].toString() == value);
-                    setState(() {
-                      selectedMasterCpmkId = value;
-                      selectedKodeCpmk = selectedData['kode_cpmk']?.toString();
-                      _cpmkController.text = selectedData['deskripsi']?.toString() ?? '';
-                    });
-                  },
+                      const SizedBox(width: 8),
+                      Text(
+                        item['kode_cpmk'] ?? '-',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-          if (_cpmkController.text.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.only(top: 15, bottom: 5),
-              child: Text("Deskripsi Capaian Resmi (Kaprodi):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Text(
-                _cpmkController.text,
-                style: const TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w500, color: Colors.black87),
-              ),
-            ),
-          ],
+              );
+            }).toList(),
+          ),
+          
+          if (validSelectedGroups.isNotEmpty) ...[
+            const Divider(height: 30),
+            const Text("Deskripsi CPMK Terpilih:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryColor)),
+            const SizedBox(height: 10),
+            ...validSelectedGroups.map((grup) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+                  child: Text(
+                    "${grup.selectedKodeCpmk} : ${grup.deskripsiCpmk}",
+                    style: const TextStyle(fontSize: 12, height: 1.4, color: Colors.black87, fontWeight: FontWeight.w500),
+                  ),
+                )),
+          ]
         ],
       ),
     );
   }
 
-  Widget _buildCplCard(Map<String, dynamic> cpl) {
+  Widget _buildCplCardTunggal(Map<String, dynamic> cpl) {
     final String cplId = cpl['id'].toString();
     final bool isSelected = selectedCplIds.contains(cplId);
     final bool isStandar = standarCplIds.contains(cplId);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 12),
+      duration: const Duration(milliseconds: 150),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isSelected ? primaryColor : Colors.transparent, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade200, width: isSelected ? 1.5 : 1),
       ),
       child: CheckboxListTile(
         activeColor: primaryColor,
+        dense: true,
         title: Row(
           children: [
-            Text(cpl['kode_cpl'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(cpl['kode_cpl'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             if (isStandar) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(5)),
-                child: const Text("STANDAR", style: TextStyle(fontSize: 9, color: Colors.blue, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                child: const Text("STANDAR", style: TextStyle(fontSize: 8, color: Colors.blue, fontWeight: FontWeight.bold)),
               )
             ]
           ],
         ),
-        subtitle: Text(cpl['deskripsi'] ?? '-', style: const TextStyle(fontSize: 12)),
+        subtitle: Text(cpl['deskripsi'] ?? '-', style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
         value: isSelected,
         onChanged: (val) {
           setState(() {
@@ -328,25 +387,32 @@ class _MappingPageState extends State<MappingPage> {
           });
         },
       ),
-      // --- SEKARANG BERSIH: Textfield input bobot persen (%) di bawah list tile ini sudah dihapus total ---
     );
   }
 
-  Widget _buildSubmitButton(bool isReady) {
-    return SizedBox(
-      width: double.infinity,
-      height: 55,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isReady ? Colors.green : Colors.grey,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: isReady ? 3 : 0,
-        ),
-        onPressed: (isLoading || !isReady) ? null : _simpanMapping,
-        child: Text(
-          isLoading ? "PROSES MENYIMPAN..." : "SIMPAN MAPPING OBE",
-          style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+  Widget _buildBottomActionPanel(bool isReady) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -4))],
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isReady ? Colors.green : Colors.grey,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: (isLoading || !isReady) ? null : _simpanMapping,
+            child: Text(
+              isLoading ? "SEDANG MENYIMPAN DATA MASAL..." : "SIMPAN DOKUMEN MAPPING OBE",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
+            ),
+          ),
         ),
       ),
     );

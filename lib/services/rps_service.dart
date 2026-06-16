@@ -124,7 +124,8 @@ class RpsService {
     }
   }
 
-  // 6. Ambil detail lengkap 1 RPS (Termasuk CPMK dan CPL-nya)
+  // 6. Ambil detail lengkap 1 RPS (PRODUKSI BERSIH: Membaca langsung kode_cpmk fisik dari satu tabel cpmk)
+  // 6. Ambil detail lengkap 1 RPS (PRODUKSI BERSIH: Membaca langsung kode_cpmk fisik dari satu tabel cpmk)
   Future<Map<String, dynamic>> getRpsDetail(String rpsId) async {
     try {
       final response = await supabase
@@ -134,7 +135,10 @@ class RpsService {
             mata_kuliah(*), 
             users(nama), 
             cpmk(
-              *,
+              id,
+              rps_id,
+              kode_cpmk,
+              deskripsi,
               mapping_cpl_cpmk(
                 bobot, 
                 cpl(kode_cpl, deskripsi)
@@ -144,7 +148,9 @@ class RpsService {
           ''')
           .eq('id', rpsId)
           .single();
-      return response;
+
+      final Map<String, dynamic> rpsData = Map<String, dynamic>.from(response);
+      return rpsData;
     } catch (e) {
       throw 'Gagal mengambil detail RPS: $e';
     }
@@ -459,16 +465,21 @@ class RpsService {
     }
   }
 
-  // 23. --- MAPPING CPMK & CPL DENGAN BOBOT ---
+  // 23. --- MAPPING CPMK & CPL DENGAN BOBOT (EKSPLISIT INSERT KODE_CPMK KELAS TRANSAKSI DOSEN) ---
   Future<void> saveMappingWithWeights({
     required String rpsId,
     required String deskripsi,
+    required String? kodeCpmk, 
     required List<Map<String, dynamic>> mappingData,
   }) async {
     try {
       final cpmkResponse = await supabase
           .from('cpmk')
-          .insert({'rps_id': rpsId, 'deskripsi': deskripsi})
+          .insert({
+            'rps_id': rpsId, 
+            'deskripsi': deskripsi,
+            'kode_cpmk': kodeCpmk 
+          })
           .select().single();
 
       final String newCpmkId = cpmkResponse['id'].toString();
@@ -525,13 +536,13 @@ class RpsService {
     }
   }
 
-  // --- FUNGSI MASTER: AMBIL SEMUA DATA MASTER CPMK JOIN MATA KULIAH ---
-  // --- FIX EROR: SEKARANG KUERI MENEMBAK TEPAT KE TABEL BARU 'master_cpmk' ---
+  // --- SINKRONISASI TOTAL: AMBIL SEMUA DATA MASTER ACUAN KAPRODI DINAMIS DARI TABEL CPMK (RPS_ID IS NULL) ---
   Future<List<Map<String, dynamic>>> getAllMasterCpmk() async {
     try {
       final response = await supabase
-          .from('master_cpmk') // ← Diubah dari 'cpmk' menjadi 'master_cpmk'
+          .from('cpmk') // Dialihkan sepenuhnya ke tabel tunggal cpmk
           .select('*, mata_kuliah(nama_mk)')
+          .filter('rps_id', 'is', null) // Memfilter hanya data draf terpusat milik Kaprodi
           .order('kode_cpmk', ascending: true);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -539,13 +550,14 @@ class RpsService {
     }
   }
 
-  // --- FIX EROR: PROSES INSERT DATA JGA MENEMBAK KE TABEL BARU 'master_cpmk' ---
+  // --- SINKRONISASI TOTAL: PROSES INSERT DATA BARU KAPRODI JUGA MENEMBAK LANGSUNG KE TABEL CPMK ---
   Future<void> addMasterCpmk(String kode, String deskripsi, String mkId) async {
     try {
-      await supabase.from('master_cpmk').insert({ // ← Diubah dari 'cpmk' menjadi 'master_cpmk'
+      await supabase.from('cpmk').insert({ // Dialihkan sepenuhnya ke tabel tunggal cpmk
         'kode_cpmk': kode,
         'deskripsi': deskripsi,
         'mata_kuliah_id': mkId,
+        'rps_id': null // Diset null karena ini draf kurikulum awal program studi
       });
     } catch (e) {
       throw 'Gagal menambah master CPMK: $e';

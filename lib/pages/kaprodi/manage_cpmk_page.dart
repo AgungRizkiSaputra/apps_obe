@@ -16,6 +16,9 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
   final _deskripsiController = TextEditingController();
   String? _selectedMkId;
   List<Map<String, dynamic>> _listMataKuliah = [];
+  
+  // --- FITUR TAMBAHAN PROTEKSI: Mencegah trigger klik ganda pada sistem web ---
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -126,14 +129,21 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white),
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async { // Menonaktifkan tombol secara otomatis jika sistem sedang loading
                 if (!_isValid()) return;
+                
+                setDialogState(() => _isSaving = true);
+                setState(() => _isSaving = true);
+
                 try {
-                  await rpsService.addMasterCpmk(
-                    _kodeController.text.trim(),
-                    _deskripsiController.text.trim(),
-                    _selectedMkId!,
-                  );
+                  // --- PERBAIKAN SINKRONISASI LU: Mengarahkan insert langsung ke tabel transaksi cpmk ---
+                  await rpsService.supabase.from('cpmk').insert({
+                    'kode_cpmk': _kodeController.text.trim(),
+                    'deskripsi': _deskripsiController.text.trim(),
+                    'mata_kuliah_id': _selectedMkId!,
+                    'rps_id': null // Dikosongkan karena ini adalah draf standar awal dari Kaprodi
+                  });
+
                   if (mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Berhasil menambah master CPMK"), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
@@ -141,9 +151,12 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+                } finally {
+                  setDialogState(() => _isSaving = false);
+                  setState(() => _isSaving = false);
                 }
               },
-              child: const Text("Simpan"),
+              child: Text(_isSaving ? "Menyimpan..." : "Simpan"),
             ),
           ],
         ),
@@ -173,7 +186,15 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
           ),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: rpsService.getAllMasterCpmk(),
+              // --- PERBAIKAN SINKRONISASI LU: Menembak langsung select query ke tabel cpmk dengan filter rps_id is null ---
+              future: () async {
+                final response = await rpsService.supabase
+                    .from('cpmk')
+                    .select('*, mata_kuliah(nama_mk)')
+                    .filter('rps_id', 'is', null) // Memastikan hanya menampilkan standar kurikulum dari Kaprodi
+                    .order('kode_cpmk', ascending: true);
+                return List<Map<String, dynamic>>.from(response);
+              }(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                 final list = snapshot.data ?? [];
