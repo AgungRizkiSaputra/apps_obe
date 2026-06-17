@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rps_obe_app/pages/dosen/mapping_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/rps_service.dart';
 
 class CreateRpsPage extends StatefulWidget {
   const CreateRpsPage({super.key});
@@ -11,31 +10,18 @@ class CreateRpsPage extends StatefulWidget {
 }
 
 class _CreateRpsPageState extends State<CreateRpsPage> {
-  final _rpsService = RpsService();
   final _supabase = Supabase.instance.client;
   
-  // --- PENYELARASAN WARNA SOLID SESUAI LOGO (TANPA GRADASI) ---
   static const Color primaryColor = Color(0xFF007AFF);
 
   String? selectedMkId;
-  final tahunController = TextEditingController(text: "2025/2026");
-  
-  // --- KONTROLLER BAWAAN AWAL ---
+  final tahunController = TextEditingController(); 
   final bahanKajianController = TextEditingController();
   
-  // --- KONTROLLER BARU TAMBAHAN UNTUK LENGKAPI FITUR POIN 1 ---
-  final metodeBelajarController = TextEditingController(
-    text: "Problem Based Learning (PBL), Kuliah Teori Kelas, Diskusi Kasus Kelompok, dan Praktikum Terapan Laboratorium."
-  );
-  final referensiController = TextEditingController(
-    text: "1. Kurose, J.F. & Ross, K.W. (2022). Computer Networking: A Top-Down Approach (8th ed.). Pearson.\n2. Lammle, T. (2022). CompTIA Network+ Study Guide (5th ed.). Sybex."
-  );
-  final prasyaratController = TextEditingController(
-    text: "KB1124 Pengantar Jaringan Komputer / Algoritma Lanjutan"
-  );
-  final ambangBatasController = TextEditingController(
-    text: "Skor Minimal Kelulusan 60 (Grade C)."
-  );
+  final metodeBelajarController = TextEditingController();
+  final referensiController = TextEditingController();
+  final prasyaratController = TextEditingController();
+  final ambangBatasController = TextEditingController();
   
   String selectedSemester = "Ganjil";
   bool isLoading = false;
@@ -47,7 +33,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     _fetchMataKuliah();
   }
 
-  // --- DISPOSE SEMUA KONTROLLER BIAR TIDAK MEMORY LEAK ---
   @override
   void dispose() {
     tahunController.dispose();
@@ -72,7 +57,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     }
   }
 
-  // --- LOGIKA VALIDASI (UTUH 100% + CHECK KELENGKAPAN FIELD BARU) ---
   bool _isInputValid() {
     if (selectedMkId == null) {
       _showCustomNotif("Silakan pilih Mata Kuliah!", Colors.orange);
@@ -83,14 +67,13 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
       return false;
     }
     if (!tahunController.text.contains('/')) {
-      _showCustomNotif("Format Tahun salah (2025/2026)!", Colors.orange);
+      _showCustomNotif("Format Tahun salah (Contoh: 2025/2026)!", Colors.orange);
       return false;
     }
     if (bahanKajianController.text.trim().isEmpty) {
       _showCustomNotif("Bahan Kajian / Pokok Bahasan wajib diisi!", Colors.orange);
       return false;
     }
-    // Validasi field tambahan biar dosen diingatkan jika sengaja dikosongkan
     if (metodeBelajarController.text.trim().isEmpty || 
         referensiController.text.trim().isEmpty || 
         ambangBatasController.text.trim().isEmpty) {
@@ -100,7 +83,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     return true;
   }
 
-  // --- POLESAN NOTIFIKASI KONSISTEN (UTUH) ---
   void _showCustomNotif(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -128,38 +110,29 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     );
   }
 
-  // --- LOGIKA SIMPAN (UTUH 100% & KINI MENYALURKAN EMBER DATA POIN 1 KE SERVICE) ---
-  Future<void> _handleSimpanRps() async {
+  // --- KOREKSI TOTAL POIN 1: Mengoper data mentah sebagai map tanpa menyimpan ke database dulu gung ---
+  void _handleLanjutKeMapping() {
     if (!_isInputValid()) return;
-    setState(() => isLoading = true);
-    try {
-      final userId = _supabase.auth.currentUser!.id;
-      
-      // Mengirimkan parameter data tambahan baru ke rpsService
-      final result = await _rpsService.createRps(
-        mkId: selectedMkId!,
-        dosenId: userId,
-        tahunAjaran: tahunController.text.trim(),
-        semester: selectedSemester,
-        bahanKajian: bahanKajianController.text.trim(),
-        metodePembelajaran: metodeBelajarController.text.trim(), // --- INSTRUMEN BARU POIN 1 ---
-        daftarReferensi: referensiController.text.trim(),
-        mkPrasyarat: prasyaratController.text.trim(),
-        ambangBatas: ambangBatasController.text.trim(),
-      );
-      if (mounted) {
-        _showCustomNotif("Draft Tersimpan! Membuka Mapping OBE...", Colors.green);
-        
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => MappingPage(rpsData: result)),
-        );
-      }
-    } catch (e) {
-      if (mounted) _showCustomNotif("Gagal: $e", Colors.red);
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
+    
+    final Map<String, dynamic> rpsDataMentah = {
+      'mata_kuliah_id': selectedMkId!,
+      'tahun_ajaran': tahunController.text.trim(),
+      'semester': selectedSemester,
+      'bahan_kajian': bahanKajianController.text.trim(),
+      'metode_pembelajaran': metodeBelajarController.text.trim(), 
+      'daftar_referensi': referensiController.text.trim(),
+      'mk_prasyarat': prasyaratController.text.trim(),
+      'ambang_batas': ambangBatasController.text.trim(),
+    };
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MappingPage(
+          rpsData: rpsDataMentah,
+        ),
+      ),
+    );
   }
 
   @override
@@ -221,31 +194,26 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
                       _buildTextFieldBahanKajian(),
                       const SizedBox(height: 25),
 
-                      // --- FORM BARU 1: METODE PEMBELAJARAN ---
                       _buildLabel("Metode / Model Pembelajaran", Icons.gavel_outlined),
                       const SizedBox(height: 10),
-                      _buildCustomTextField(metodeBelajarController, "Masukkan model (PBL/PjBL)...", 2),
+                      _buildCustomTextField(metodeBelajarController, "Contoh: Problem Based Learning (PBL), Kuliah Teori Kelas, Diskusi Kasus Kelompok, dan Praktikum Terapan Laboratorium.", 2),
                       const SizedBox(height: 25),
 
-                      // --- FORM BARU 2: DAFTAR REFERENSI BUKU ---
                       _buildLabel("Daftar Referensi / Pustaka Utama", Icons.menu_book_outlined),
                       const SizedBox(height: 10),
-                      _buildCustomTextField(referensiController, "1. Judul Buku Utama\n2. Judul Buku Pendukung", 3),
+                      _buildCustomTextField(referensiController, "Contoh:\n1. Kurose, J.F. & Ross, K.W. (2022). Computer Networking: A Top-Down Approach (8th ed.). Pearson.\n2. Lammle, T. (2022). CompTIA Network+ Study Guide (5th ed.). Sybex.", 3),
                       const SizedBox(height: 25),
 
-                      // --- FORM BARU 3: MATA KULIAH PRASYARAT ---
                       _buildLabel("Mata Kuliah Prasyarat (Jika Ada)", Icons.lock_open_outlined),
                       const SizedBox(height: 10),
-                      _buildCustomTextField(prasyaratController, "Contoh: Lulus Jaringan Komputer Dasar", 1),
+                      _buildCustomTextField(prasyaratController, "Contoh: KB1124 Pengantar Jaringan Komputer / Algoritma Lanjutan (Sifat: Wajib Lulus Terstruktur)", 1),
                       const SizedBox(height: 25),
 
-                      // --- FORM BARU 4: AMBANG BATAS KELULUSAN ---
                       _buildLabel("Ambang Batas Kelulusan Nilai", Icons.speed_outlined),
                       const SizedBox(height: 10),
-                      _buildCustomTextField(ambangBatasController, "Masukkan kriteria kelulusan...", 2),
+                      _buildCustomTextField(ambangBatasController, "Contoh: Skor Minimal Kelulusan 60 (Grade C).", 2),
                       const SizedBox(height: 25),
 
-                      // --- FITUR BARU POIN 2: LOCK BOBOT EVALUASI PENILAIAN 100% (READ ONLY) ---
                       _buildLabel("Komponen & Bobot Penilaian (Otomatis Terkunci prodi)", Icons.analytics_outlined),
                       const SizedBox(height: 10),
                       Container(
@@ -289,7 +257,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     );
   }
 
-  // --- UI HELPERS ---
   Widget _buildLabel(String text, IconData icon) {
     return Row(
       children: [
@@ -363,7 +330,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     );
   }
 
-  // --- COMPONENT REUSABLE TEXTFIELD TAMBAHAN BARU UNTUK INSTRUMEN OBE ---
   Widget _buildCustomTextField(TextEditingController controller, String hint, int lines) {
     return TextField(
       controller: controller,
@@ -372,7 +338,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+        hintStyle: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.3),
         contentPadding: const EdgeInsets.all(15),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
@@ -390,13 +356,10 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor, 
           foregroundColor: Colors.white, 
-          elevation: 2, 
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        onPressed: isLoading ? null : _handleSimpanRps,
-        child: isLoading 
-          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-          : const Text("SIMPAN & LANJUT MAPPING", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        onPressed: _handleLanjutKeMapping,
+        child: const Text("LANJUT KE MAPPING OBE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
       ),
     );
   }

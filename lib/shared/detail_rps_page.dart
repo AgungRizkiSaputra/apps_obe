@@ -18,7 +18,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
   
   static const Color primaryColor = Color(0xFF007AFF);
   
-  // local UI state
   bool isLoading = false;
   late Future<Map<String, dynamic>> _detailFuture;
 
@@ -162,7 +161,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
                     if (!widget.isKaprodi && (status == 'draft' || status == 'revisi'))
                       _buildDosenAction(context),
 
-                    // --- SECTION 2: INTEGRASI GABUNGAN CPL & CPMK (LAYOUT BARU) ---
+                    // --- SECTION 2: INTEGRASI GABUNGAN CPL & CPMK ---
                     _buildSectionHeader("Capaian Pembelajaran (CPMK & CPL)", Icons.verified_user_rounded),
                     if (listCpmk.isEmpty) 
                       _buildEmptyState("Belum ada data pemetaan OBE prodi.")
@@ -189,9 +188,7 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  // --- KARTU LAYOUT GABUNGAN BARU: Menampilkan CPL Sekali di Atas, Lalu CPMK Mengalir di Bawahnya ---
   Widget _buildCombinedObeCard(List listCpmk) {
-    // Ekstraksi seluruh CPL unik dari seluruh list CPMK yang dipilih dosen gung
     final Map<String, Map<String, dynamic>> uniqueCpls = {};
     for (var cpmk in listCpmk) {
       final mappings = (cpmk['mapping_cpl_cpmk'] as List?) ?? [];
@@ -213,7 +210,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. TAMPILAN KELOMPOK TARGET CPL PRODI (MUNCUL 1 KALI SAJA DI ATAS)
             const Text("Mendukung CPL Program Studi:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.3)),
             const SizedBox(height: 10),
             if (uniqueCpls.isEmpty)
@@ -247,7 +243,6 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
               child: Divider(height: 1, color: Color(0xFFF5F5F5), thickness: 1.2),
             ),
 
-            // 2. TAMPILAN KOMPONEN INDIKATOR CPMK (MENGALIR DI BAWAHNYA LANGSUNG TANPA BOKS BARU)
             const Text("Capaian Pembelajaran Mata Kuliah (CPMK):", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.3)),
             const SizedBox(height: 12),
             ...listCpmk.map((c) {
@@ -277,9 +272,50 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
+  Widget _buildKaprodiActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+      color: Colors.white,
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => _showRevisiDialog(),
+                child: const Text("REVISI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => _updateStatus('approved'),
+                child: const Text("SETUJU", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionBottomContainer(Map<String, dynamic> data, List listCpmk, String status) {
     if (widget.isKaprodi && (status == 'waiting_approval' || status == 'waiting_approval_revision')) {
       return _buildKaprodiActions();
+    }
+
+    // --- KOREKSI POIN 3: Jika dokumen berstatus draft dosen, hilangkan kontainer tombol cetak secara absolut gung ---
+    if (!widget.isKaprodi && status == 'draft') {
+      return const SizedBox.shrink(); 
     }
 
     return Container(
@@ -492,54 +528,15 @@ class _DetailRpsPageState extends State<DetailRpsPage> {
     );
   }
 
-  Widget _buildKaprodiActions() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, -5)),
-        ],
-      ),
+  Widget _buildEmptyState(String message) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
       child: Row(
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _showRevisiDialog, 
-              icon: const Icon(Icons.edit_note),
-              label: const Text("Revisi"),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange, 
-                side: const BorderSide(color: Colors.orange), 
-                padding: const EdgeInsets.symmetric(vertical: 15), 
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () => _updateStatus('approved'),
-              icon: const Icon(Icons.check_circle_rounded),
-              label: const Text("Setujui"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, 
-                foregroundColor: Colors.white, 
-                padding: const EdgeInsets.symmetric(vertical: 15), 
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
+          const Icon(Icons.info_outline, size: 18, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message, style: const TextStyle(fontSize: 13, color: Colors.grey))),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String msg) {
-    return Padding(
-      padding: const EdgeInsets.all(20), 
-      child: Center(
-        child: Text(msg, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
       ),
     );
   }
