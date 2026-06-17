@@ -125,7 +125,6 @@ class RpsService {
   }
 
   // 6. Ambil detail lengkap 1 RPS (PRODUKSI BERSIH: Membaca langsung kode_cpmk fisik dari satu tabel cpmk)
-  // 6. Ambil detail lengkap 1 RPS (PRODUKSI BERSIH: Membaca langsung kode_cpmk fisik dari satu tabel cpmk)
   Future<Map<String, dynamic>> getRpsDetail(String rpsId) async {
     try {
       final response = await supabase
@@ -220,7 +219,7 @@ class RpsService {
         'nama_mk': nama,
         'sks': sks,
         'semester': semester,
-        'deskripsi': deskripsi, // Memasukkan teks deskripsi kurikulum terpusat
+        'deskripsi': deskripsi, 
       });
     } catch (e) {
       throw 'Gagal menambah MK: $e';
@@ -235,7 +234,7 @@ class RpsService {
         'nama_mk': nama,
         'sks': sks,
         'semester': semester,
-        'deskripsi': deskripsi, // Memperbarui teks deskripsi kurikulum terpusat
+        'deskripsi': deskripsi, 
       }).eq('id', id);
     } catch (e) {
       throw 'Gagal memperbarui MK: $e';
@@ -276,12 +275,16 @@ class RpsService {
     }
   }
 
-  // Edit CPL
-  Future<void> updateCpl(dynamic id, String kode, String deskripsi) async {
-    await supabase.from('cpl').update({
-      'kode_cpl': kode,
-      'deskripsi': deskripsi,
-    }).eq('id', id);
+  // --- AMAN UPDATE POIN 12: Fungsi Edit CPL dengan mengunci parameter string uuid gung ---
+  Future<void> updateCpl(String id, String kode, String deskripsi) async {
+    try {
+      await supabase.from('cpl').update({
+        'kode_cpl': kode,
+        'deskripsi': deskripsi,
+      }).eq('id', id);
+    } catch (e) {
+      throw 'Gagal memperbarui CPL prodi: $e';
+    }
   }
 
   // Hapus CPL Berdasarkan ID
@@ -465,7 +468,7 @@ class RpsService {
     }
   }
 
-  // 23. --- MAPPING CPMK & CPL DENGAN BOBOT (EKSPLISIT INSERT KODE_CPMK KELAS TRANSAKSI DOSEN) ---
+  // 23. --- MAPPING CPMK & CPL DENGAN BOBOT ---
   Future<void> saveMappingWithWeights({
     required String rpsId,
     required String deskripsi,
@@ -498,7 +501,7 @@ class RpsService {
     }
   }
 
-  // 24. Tambahan: Fungsi dengan penamaan sesuai permintaan sebelumnya
+  // 24. Tambahan
   Future<void> saveRencanaPertemuan(List<Map<String, dynamic>> dataPertemuan) async {
     try {
       await supabase.from('rps_detail').upsert(dataPertemuan, onConflict: 'rps_id, minggu_ke');
@@ -536,13 +539,13 @@ class RpsService {
     }
   }
 
-  // --- SINKRONISASI TOTAL: AMBIL SEMUA DATA MASTER ACUAN KAPRODI DINAMIS DARI TABEL CPMK (RPS_ID IS NULL) ---
+  // --- SINKRONISASI TOTAL: AMBIL SEMUA DATA MASTER ACUAN KAPRODI DINAMIS DARI TABEL CPMK ---
   Future<List<Map<String, dynamic>>> getAllMasterCpmk() async {
     try {
       final response = await supabase
-          .from('cpmk') // Dialihkan sepenuhnya ke tabel tunggal cpmk
+          .from('cpmk') 
           .select('*, mata_kuliah(nama_mk)')
-          .filter('rps_id', 'is', null) // Memfilter hanya data draf terpusat milik Kaprodi
+          .filter('rps_id', 'is', null) 
           .order('kode_cpmk', ascending: true);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -553,14 +556,36 @@ class RpsService {
   // --- SINKRONISASI TOTAL: PROSES INSERT DATA BARU KAPRODI JUGA MENEMBAK LANGSUNG KE TABEL CPMK ---
   Future<void> addMasterCpmk(String kode, String deskripsi, String mkId) async {
     try {
-      await supabase.from('cpmk').insert({ // Dialihkan sepenuhnya ke tabel tunggal cpmk
+      await supabase.from('cpmk').insert({ 
         'kode_cpmk': kode,
         'deskripsi': deskripsi,
         'mata_kuliah_id': mkId,
-        'rps_id': null // Diset null karena ini draf kurikulum awal program studi
+        'rps_id': null 
       });
     } catch (e) {
       throw 'Gagal menambah master CPMK: $e';
+    }
+  }
+
+  // --- PENAMBAHAN FITUR: UPDATE DATA MASTER CPMK ---
+  Future<void> updateMasterCpmk(String id, String kode, String deskripsi, String mkId) async {
+    try {
+      await supabase.from('cpmk').update({
+        'kode_cpmk': kode,
+        'deskripsi': deskripsi,
+        'mata_kuliah_id': mkId,
+      }).eq('id', id);
+    } catch (e) {
+      throw 'Gagal memperbarui master CPMK: $e';
+    }
+  }
+
+  // --- PENAMBAHAN FITUR: HAPUS DATA MASTER CPMK ---
+  Future<void> deleteMasterCpmk(String id) async {
+    try {
+      await supabase.from('cpmk').delete().eq('id', id);
+    } catch (e) {
+      throw 'Master CPMK tidak bisa dihapus karena sudah digunakan dalam data mapping dosen.';
     }
   }
 }

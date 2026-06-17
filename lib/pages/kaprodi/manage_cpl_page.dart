@@ -21,6 +21,9 @@ class _ManageCplPageState extends State<ManageCplPage> {
 
   // --- UI DIALOG TAMBAH (LOGIKA UTUH 100%) ---
   void _showAddDialog() {
+    _kodeController.clear();
+    _deskripsiController.clear();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -83,6 +86,77 @@ class _ManageCplPageState extends State<ManageCplPage> {
               }
             },
             child: const Text("Simpan"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- FITUR TAMBAHAN: UI DIALOG EDIT MODAL ANTI-EROR UNTUK KAPRODI ---
+  void _showEditDialog(Map<String, dynamic> cpl) {
+    final editKodeController = TextEditingController(text: cpl['kode_cpl']);
+    final editDeskripsiController = TextEditingController(text: cpl['deskripsi']);
+    final String cplId = cpl['id'].toString();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Edit CPL Prodi", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: editKodeController, 
+                decoration: InputDecoration(
+                  labelText: "Kode CPL",
+                  prefixIcon: const Icon(Icons.tag, color: primaryColor),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                )
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: editDeskripsiController, 
+                maxLines: 4,
+                decoration: InputDecoration(
+                  labelText: "Deskripsi", 
+                  alignLabelWithHint: true,
+                  prefixIcon: const Icon(Icons.description_outlined, color: primaryColor),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              if (editKodeController.text.trim().isEmpty || editDeskripsiController.text.trim().isEmpty) {
+                _showNotif("Kode dan Deskripsi tidak boleh kosong!", Colors.orange);
+                return;
+              }
+
+              try {
+                await rpsService.updateCpl(cplId, editKodeController.text.trim(), editDeskripsiController.text.trim());
+                if (mounted) { 
+                  Navigator.pop(context); 
+                  _refresh(); 
+                  _showNotif("Berhasil memperbarui CPL Prodi", Colors.green);
+                }
+              } catch (e) {
+                if (mounted) _showNotif("Gagal: $e", Colors.red);
+              }
+            },
+            child: const Text("Perbarui"),
           ),
         ],
       ),
@@ -185,38 +259,48 @@ class _ManageCplPageState extends State<ManageCplPage> {
             style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
           ),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 24),
-          onPressed: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                title: const Text("Hapus CPL?"),
-                content: const Text("Data yang dihapus tidak bisa dikembalikan. Pastikan CPL ini tidak sedang digunakan."),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    onPressed: () => Navigator.pop(context, true), 
-                    child: const Text("Hapus", style: TextStyle(color: Colors.white))
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // --- FITUR TAMBAHAN POIN UTAMA: Tombol pemicu Edit Modal gung ---
+            IconButton(
+              icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 26),
+              onPressed: () => _showEditDialog(cpl),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 24),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: const Text("Hapus CPL?"),
+                    content: const Text("Data yang dihapus tidak bisa dikembalikan. Pastikan CPL ini tidak sedang digunakan."),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Batal")),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () => Navigator.pop(context, true), 
+                        child: const Text("Hapus", style: TextStyle(color: Colors.white))
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-            
-            if (confirm == true) {
-              try {
-                await rpsService.deleteCpl(cpl['id']);
-                if (mounted) { 
-                  _refresh(); 
-                  _showNotif("CPL berhasil dihapus", Colors.green);
+                );
+                
+                if (confirm == true) {
+                  try {
+                    await rpsService.deleteCpl(cpl['id'].toString());
+                    if (mounted) { 
+                      _refresh(); 
+                      _showNotif("CPL berhasil dihapus", Colors.green);
+                    }
+                  } catch (e) {
+                    if (mounted) _showNotif("Gagal menghapus: $e", Colors.red);
+                  }
                 }
-              } catch (e) {
-                if (mounted) _showNotif("Gagal menghapus: $e", Colors.red);
-              }
-            }
-          },
+              },
+            ),
+          ],
         ),
       ),
     );
