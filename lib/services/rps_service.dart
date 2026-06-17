@@ -510,7 +510,7 @@ class RpsService {
     }
   }
 
-  // 25. Fungsi untuk menambahkan dosen baru (Admin)
+  // 25. Fungsi untuk menambahkan dosen baru (Admin) - AMAN SINKRONISASI 100%
   Future<void> tambahDosenBaru({
     required String email,
     required String password,
@@ -534,6 +534,12 @@ class RpsService {
           'role': 'dosen',
         });
       }
+    } on AuthException catch (authE) {
+      // --- PENANGANAN FITUR DINAMIS: Memberikan pesan yang ramah dan jelas saat sidang skripsi ---
+      if (authE.statusCode == '422' || authE.message.contains('already registered')) {
+        throw 'Email sudah terdaftar di sistem! Silakan hapus user lama di menu Authentication Supabase terlebih dahulu.';
+      }
+      throw authE.message;
     } catch (e) {
       throw 'Gagal mendaftarkan dosen: $e';
     }

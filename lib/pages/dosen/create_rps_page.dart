@@ -34,7 +34,7 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     text: "KB1124 Pengantar Jaringan Komputer / Algoritma Lanjutan"
   );
   final ambangBatasController = TextEditingController(
-    text: "Ambang Batas Kelulusan Minimal Mahasiswa: Skor Minimal Kelulusan 60 (Grade C)."
+    text: "Skor Minimal Kelulusan 60 (Grade C)."
   );
   
   String selectedSemester = "Ganjil";

@@ -34,15 +34,34 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       }
     } else {
+      // --- PERBAIKAN SINKRONISASI JALUR AMAN AGUNG: Memastikan Role Akurat Pasca Refresh ---
+      String? role = session.user.userMetadata?['role']?.toString();
+
+      // Jika metadata lokal kosong akibat refresh browser Chrome, todong langsung ke database publik
+      if (role == null || role.trim().isEmpty) {
+        try {
+          final resData = await Supabase.instance.client
+              .from('users')
+              .select('role')
+              .eq('id', session.user.id)
+              .maybeSingle();
+              
+          if (resData != null) {
+            role = resData['role']?.toString();
+          }
+        } catch (e) {
+          debugPrint("Gagal sinkronisasi role splash: $e");
+        }
+      }
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => _getLandingPage(session.user.userMetadata?['role'])),
+          MaterialPageRoute(builder: (context) => _getLandingPage(role)),
         );
       }
     }
   }
-
 
   Widget _getLandingPage(String? role) {
     if (role == 'kaprodi') {
@@ -91,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontWeight: FontWeight.w400,
               ),
             ),
-            SizedBox(height: 35), // Jarak menuju loading dibuat lebih proporsional
+            SizedBox(height: 35), 
 
             // --- INDIKATOR LOADING MINIMALIS ---
             SizedBox(
