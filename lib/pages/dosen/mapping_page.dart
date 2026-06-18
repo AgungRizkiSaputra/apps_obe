@@ -120,42 +120,6 @@ class _MappingPageState extends State<MappingPage> {
     );
   }
 
-  void _showPeringatanPertemuanDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-            SizedBox(width: 10),
-            Text("Peringatan Sistem", style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text(
-          "Data dasar & pemetaan OBE berhasil disimpan!\n\n"
-          "PENTING: Anda belum melengkapi Rencana Pertemuan (Minggu 1-14). Silakan masuk ke Detail RPS untuk melengkapinya agar dokumen dapat diajukan ke Kaprodi.",
-          style: TextStyle(fontSize: 14, height: 1.4),
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () {
-              Navigator.pop(context); // Tutup dialog
-              Navigator.pop(context); // Kembali ke Dashboard Utama Dosen gung
-            },
-            child: const Text("Saya Paham", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _simpanMapping() async {
     if (mappingGroups.isEmpty) {
       _showCustomNotif("Silakan pilih minimal 1 Kode CPMK pada pilihan di atas.", Colors.orange);
@@ -169,16 +133,15 @@ class _MappingPageState extends State<MappingPage> {
 
     setState(() => isLoading = true);
     try {
-      // Menyiapkan string penampung ID transaksi utama gung
-      String rpsId = '';
+      // --- KOREKSI TOTAL VALIDASI POIN UTAMA AGUNG: Mendeteksi alur tunda secara pintar otomatis ---
+      String rpsId = widget.rpsData['id']?.toString() ?? '';
+      final bool apakahDokumenBaru = (rpsId.isEmpty || rpsId == 'null');
 
-      // --- SIKAT TOTAL ALUR SIMPAN TUNDA AGUNG: Eksekusi createRps langsung nodong key map asli gung ---
-      if (widget.rpsData['id'] == null) {
+      if (apakahDokumenBaru) {
         final userId = _supabase.auth.currentUser!.id;
         
-        // Memanggil fungsi original rpsService lu dengan parameter super akurat gung
         final Map<String, dynamic> rpsBaru = await _rpsService.createRps(
-          mkId: widget.rpsData['mata_kuliah_id'].toString(), // Nodong langsung ke key mata_kuliah_id asli
+          mkId: widget.rpsData['mata_kuliah_id'].toString(), 
           dosenId: userId,
           tahunAjaran: widget.rpsData['tahun_ajaran'].toString(),
           semester: widget.rpsData['semester'].toString(),
@@ -189,11 +152,7 @@ class _MappingPageState extends State<MappingPage> {
           ambangBatas: widget.rpsData['ambang_batas'].toString(),
         );
         
-        // Kunci rpsId secara absolut menggunakan object id generate otomatis dari cloud database gung
         rpsId = rpsBaru['id'].toString();
-      } else {
-        // Skema untuk rute revisi/edit data dasar lama
-        rpsId = widget.rpsData['id'].toString();
       }
 
       if (widget.isRevision) {
@@ -219,12 +178,12 @@ class _MappingPageState extends State<MappingPage> {
           }
         }
 
-        // --- AMAN TOTAL KUNCI UUID: Memasukkan data ke tabel cpmk dengan relasi yang dijamin valid gung ---
+        // Mengunci parameter agar UUID yang dikirim terikat murni ke rpsId hasil generate database cloud gung
         final insertedCpmk = await _supabase.from('cpmk').insert({
           'rps_id': rpsId,
           'deskripsi': grup.deskripsiCpmk.trim(),
           'kode_cpmk': kodeCpmkTerverifikasi, 
-          'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString() // Diambil langsung dari data murni halaman pertama gung
+          'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString() 
         }).select('id').single();
 
         final String generatedCpmkId = insertedCpmk['id'].toString();
@@ -247,9 +206,7 @@ class _MappingPageState extends State<MappingPage> {
       if (mounted) {
         setState(() => isLoading = false);
         _showCustomNotif("Seluruh Pemetaan Multi-CPMK Berhasil Disimpan.", Colors.green);
-        
-        // Memunculkan kotak dialog peringatan agar dosen melengkapi rencana pertemuan mingguan gung
-        _showPeringatanPertemuanDialog();
+        Navigator.pop(context); 
       }
     } catch (e) {
       if (mounted) {

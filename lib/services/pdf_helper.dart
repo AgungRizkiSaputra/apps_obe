@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class PdfHelper {
   static Future<void> cetakRps(
     Map<String, dynamic> rps,
-    List<Map<String, dynamic>> mapping, // Tetap dipertahankan agar tidak mengubah struktur parameter fungsi awal gung
+    List<Map<String, dynamic>> mapping,
   ) async {
     final pdf = pw.Document();
     final supabase = Supabase.instance.client;
@@ -16,7 +16,6 @@ class PdfHelper {
     final String rpsIdReal = rps['id']?.toString() ?? '';
     final String mkId = rps['mata_kuliah_id']?.toString() ?? rps['mata_kuliah']?['id']?.toString() ?? '';
 
-    // --- LOGIKA QUERY BACKEND & SESSION LOGIN UTUH 100% (ANTI EROR) ---
     String namaKaprodi = "Siti Maisaroh Mustafa, S.S., M.Pd.";
     String? signatureUrlKaprodi;
     try {
@@ -54,7 +53,6 @@ class PdfHelper {
       print("DEBUG: Error total signature: $e");
     }
 
-    // --- LOGIKA DATA MASTER CPL BERDASARKAN ID DI RELASI ---
     List<Map<String, dynamic>> listCplDinamis = [];
     if (mkId.isNotEmpty) {
       try {
@@ -72,12 +70,11 @@ class PdfHelper {
           }
         }
         listCplDinamis.sort((a, b) => a['kode_cpl'].compareTo(b['kode_cpl']));
-            } catch (e) {
+      } catch (e) {
         print("DEBUG: Gagal memuat data CPL secara join relasi: $e");
       }
     }
 
-    // --- LOGIKA BARU KONSISTEN (MENIRU JALUR CPL PRODI): Mengambil data CPMK transaksional langsung dari database ---
     List<Map<String, dynamic>> listCpmkDinamis = [];
     if (rpsIdReal.isNotEmpty) {
       try {
@@ -93,12 +90,11 @@ class PdfHelper {
             'deskripsi': item['deskripsi']?.toString() ?? '-',
           });
         }
-            } catch (e) {
+      } catch (e) {
         print("DEBUG: Gagal memuat data CPMK transaksi secara internal: $e");
       }
     }
 
-    // Fallback darurat jika kueri internal kosong gung, agar PDF tidak rombeng kosong
     if (listCpmkDinamis.isEmpty) {
       for (var item in mapping) {
         listCpmkDinamis.add({
@@ -131,7 +127,6 @@ class PdfHelper {
         margin: const pw.EdgeInsets.symmetric(horizontal: 25, vertical: 20),
         build: (pw.Context context) {
           return [
-            // --- 1. KOP SURAT RESMI INSTITUSI KAMPUS ---
             pw.Container(
               decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 1.5, color: PdfColors.black))),
               padding: const pw.EdgeInsets.only(bottom: 6),
@@ -164,7 +159,6 @@ class PdfHelper {
             pw.Center(child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
             pw.SizedBox(height: 8),
 
-            // --- 2. GRID LAYOUT KAMPUS ---
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
               columnWidths: const {
@@ -254,7 +248,6 @@ class PdfHelper {
               ],
             ),
 
-            // Tabel Lanjutan Kebawah Untuk Detail Capaian Silabus RPS
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
               columnWidths: const {0: pw.FixedColumnWidth(126), 1: pw.FlexColumnWidth(1)},
@@ -297,13 +290,11 @@ class PdfHelper {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: listCpmkDinamis.isEmpty 
                             ? [pw.Text("-", style: const pw.TextStyle(fontSize: 7))]
-                            // --- INTEGRASI LOGIKA CPL: Membaca langsung array listCpmkDinamis hasil query internal ---
                             : listCpmkDinamis.map((cpmk) {
                                 final String kodeCpmkAsli = cpmk['kode_cpmk']?.toString() ?? 'CPMK';
                                 final String deskripsiAsli = cpmk['deskripsi']?.toString() ?? '-';
                                 return pw.Padding(
                                   padding: const pw.EdgeInsets.only(bottom: 2),
-                                  // Hasil cetakan dijamin 100% dinamis terikat rps_id: • [CPMK-01] : da
                                   child: pw.Text("• [$kodeCpmkAsli] : $deskripsiAsli", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
                                 );
                               }).toList(),
@@ -354,11 +345,10 @@ class PdfHelper {
             ),
             pw.SizedBox(height: 12),
 
-            // --- 3. MATRIKS JALUR PERTEMUAN MINGGUAN 1 - 14 ---
             pw.Text("MATRIKS PELAKSANAAN RENCANA PERTEMUAN MINGGUAN (1 - 14):", style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 4),
             pw.TableHelper.fromTextArray(
-              headers: const ['Pertama Ke-', 'Sub CPMK', 'Pokok Pembahasan', 'Metode Pembelajaran', 'Waktu', 'Pengalaman Belajar', 'Indikator Penilaian', 'Bobot Penilaian (%)'],
+              headers: const ['Pertemuan Ke-', 'Sub CPMK', 'Pokok Pembahasan', 'Metode Pembelajaran', 'Waktu', 'Pengalaman Belajar', 'Indikator Penilaian', 'Bobot Penilaian (%)'],
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5),
               headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
               cellStyle: const pw.TextStyle(fontSize: 7),
@@ -372,21 +362,21 @@ class PdfHelper {
                 6: pw.FlexColumnWidth(1.5), 
                 7: pw.FixedColumnWidth(55), 
               },
+              // --- SEKARANG BERDIRI SENDIRI MURNI: Membaca langsung kolom fisik baru sub_cpmk dan pokok_pembahasan gung ---
               data: listPertemuan.map((p) => [
                 "Minggu ${p['minggu_ke']}",
-                p['kemappan_akhir'] ?? p['kemampuan_akhir'] ?? '-',
-                p['materi'] ?? '-', 
+                p['sub_cpmk'] ?? '-', // Membaca kolom sub_cpmk asli
+                p['pokok_pembahasan'] ?? '-', // Membaca kolom pokok_pembahasan asli
                 p['metode_pembelajaran'] ?? 'Ceramah & Diskusi',
-                "150 Menit",
+                p['waktu'] ?? '150 Menit', // Membaca kolom waktu asli
                 p['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.',
                 p['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik',
-                "0%", 
+                "${p['bobot_nilai'] ?? 0}%", 
               ]).toList(),
             ),
 
             pw.SizedBox(height: 20),
 
-            // --- 4. AREA VALIDASI BAWAH HALAMAN ---
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [

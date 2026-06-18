@@ -32,8 +32,22 @@ class _DashboardDosenState extends State<DashboardDosen> {
     _refreshData();
   }
 
+  // --- KOREKSI SINKRONISASI TOTAL: Memaksa kueri lokal menarik join rps_detail agar tombol kirim aktif gung ---
   Future<void> _refreshData() async {
-    final dataBaru = rpsService.getRpsByDosen(user!.id);
+    final dataBaru = () async {
+      final response = await rpsService.supabase
+          .from('rps')
+          .select('''
+            *,
+            mata_kuliah (nama_mk, kode_mk, sks),
+            users (nama, signature_url),
+            rps_detail(id)
+          ''')
+          .eq('dosen_id', user!.id)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    }();
+
     setState(() {
       _rpsFuture = dataBaru;
     });
@@ -302,6 +316,10 @@ class _DashboardDosenState extends State<DashboardDosen> {
     final String rpsId = rps['id'].toString();
     final String status = (rps['status'] ?? '').toString();
     final bool isSelected = _selectedRpsIds.contains(rpsId);
+    
+    // --- AMAN UPDATE POIN UTAMA: Sekarang total pengisian dihitung akurat dari join data cloud gung ---
+    final List rpsDetailList = rps['rps_detail'] as List? ?? [];
+    final bool isPertemuanKosong = rpsDetailList.isEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
@@ -326,6 +344,31 @@ class _DashboardDosenState extends State<DashboardDosen> {
             const SizedBox(height: 10),
             _buildStatusChip(status),
             
+            // --- TAMPILAN BOKS PERINGATAN KUSTOM AGUNG PADA KARTU DRAFT/REVISI ---
+            if (isPertemuanKosong && (status == 'draft' || status == 'revisi'))
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Pemberitahuan: Atur Rencana Pertemuan (Minggu 1-14) belum diisi. Silakan lengkapi data agar bisa dikirim.",
+                        style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // --- TAMPILAN KOTAK NOTIFIKASI JIKA ADA CATATAN REVISI DARI KAPRODI ---
             if (status == 'revisi' && rps['catatan'] != null)
               Container(
@@ -354,12 +397,11 @@ class _DashboardDosenState extends State<DashboardDosen> {
         ),
         trailing: _isSelectionMode 
           ? Checkbox(value: isSelected, onChanged: (val) => setState(() => val == true ? _selectedRpsIds.add(rpsId) : _selectedRpsIds.remove(rpsId)))
-          : _buildTrailingAction(status, rpsId, rps),
+          : _buildTrailingAction(status, rpsId, rps, isPertemuanKosong),
         onTap: () {
           if (_isSelectionMode) {
             setState(() => isSelected ? _selectedRpsIds.remove(rpsId) : _selectedRpsIds.add(rpsId));
           } else {
-            // --- FIX TERAKURAT: TAMBAHKAN .then((_) => _refreshData()) AGAR KETIKA BACK LANGSUNG RE-FETCH DATABASE ---
             Navigator.push(
               context, 
               MaterialPageRoute(builder: (context) => DetailRpsPage(rpsId: rpsId))
@@ -386,7 +428,7 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
-  Widget _buildTrailingAction(String status, String rpsId, Map<String, dynamic> rps) {
+  Widget _buildTrailingAction(String status, String rpsId, Map<String, dynamic> rps, bool isPertemuanKosong) {
     if (status == 'approved') {
       return IconButton(
         key: ValueKey('print_$rpsId'),
@@ -395,10 +437,17 @@ class _DashboardDosenState extends State<DashboardDosen> {
       );
     }
     if (['draft', 'revisi', 'revisi_selesai'].contains(status)) {
+      // --- SEKARANG TOMBOL NYALA AKTIF OTOMATIS JIKA DATA SUDAH TERISI DI SUPABASE GUNG ---
       return TextButton(
         key: ValueKey('kirim_$rpsId'),
-        onPressed: () => _handleKirimKeKaprodi(rpsId), 
-        child: const Text("KIRIM", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+        onPressed: isPertemuanKosong ? null : () => _handleKirimKeKaprodi(rpsId), 
+        child: Text(
+          "KIRIM", 
+          style: TextStyle(
+            color: isPertemuanKosong ? Colors.grey : primaryColor, 
+            fontWeight: FontWeight.bold
+          )
+        ),
       );
     }
     return const Icon(Icons.hourglass_empty_rounded, color: Colors.blue, size: 20);
@@ -417,7 +466,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
     );
   }
 
-  // --- INDIKATOR CETAK INTERAKTIF DENGAN NOTIFIKASI BERLAPIS ---
   Future<void> _printPdf(String rpsId, Map<String, dynamic> rps) async {
     showDialog(
       context: context,

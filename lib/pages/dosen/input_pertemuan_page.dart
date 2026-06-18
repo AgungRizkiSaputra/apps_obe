@@ -18,13 +18,43 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _pertemuanData = [];
 
+  // Pilihan Dropdown untuk Metode Pembelajaran
+  final List<String> _listMetode = [
+    'Ceramah',
+    'Diskusi',
+    'Praktikum',
+    'Problem Based Learning (PBL)',
+    'Project Based Learning (PjBL)',
+    'Ceramah & Diskusi',
+  ];
+
+  // Pilihan Waktu Pembelajaran Baku Mutu Kampus
+  final List<String> _listWaktu = [
+    '50 Menit',
+    '100 Menit',
+    '150 Menit',
+    '200 Menit',
+  ];
+
   @override
   void initState() {
     super.initState();
     _initData();
   }
 
-  // --- LOGIKA INIT DATA (UTUH 100% + DIKEMBANGKAN DENGAN FIELD INSTRUMEN OBE) ---
+  @override
+  void dispose() {
+    for (var item in _pertemuanData) {
+      item['materi_controller']?.dispose();
+      item['bobot_controller']?.dispose();
+      item['pengalaman_controller']?.dispose();
+      item['indikator_controller']?.dispose();
+      item['pokok_controller']?.dispose();
+    }
+    super.dispose();
+  }
+
+  // --- LOGIKA INIT DATA (MURNI TANPA MANIPULASI STRING - SESUAI SKEMA FISIK SUPABASE AGUNG) ---
   Future<void> _initData() async {
     try {
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
@@ -36,44 +66,71 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
             orElse: () => {},
           );
 
+          String initialMetode = match['metode_pembelajaran'] ?? 'Ceramah & Diskusi';
+          if (!_listMetode.contains(initialMetode)) {
+            initialMetode = 'Ceramah & Diskusi';
+          }
+
+          String initialWaktu = match['waktu'] ?? '150 Menit';
+          if (!_listWaktu.contains(initialWaktu)) {
+            initialWaktu = '150 Menit'; 
+          }
+
+          // Membaca bersih dari kolom fisik 'sub_cpmk' dan 'pokok_pembahasan' asli database gung
+          String dbSubCpmk = match['sub_cpmk'] ?? '';
+          String dbPokok = match['pokok_pembahasan'] ?? 'Pengenalan Fundamental Jaringan dan Pemetaan Topologi';
+
           return {
             'rps_id': widget.rpsId,
             'minggu_ke': mingguKe,
-            'materi_controller': TextEditingController(text: match['kemampuan_akhir'] ?? ''),
-            'metode_controller': TextEditingController(text: match['metode_pembelajaran'] ?? ''),
+            'materi_controller': TextEditingController(text: dbSubCpmk),
+            'selected_metode': initialMetode, 
             'bobot_controller': TextEditingController(text: (match['bobot_nilai'] ?? 0).toString()),
-            // --- FIELD CONTROLLER BARU POIN 3 MATRIKS OBE ---
             'pengalaman_controller': TextEditingController(
               text: match['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.'
             ),
             'indikator_controller': TextEditingController(
               text: match['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik'
             ),
+            'pokok_controller': TextEditingController(text: dbPokok),
+            'selected_waktu': initialWaktu, 
+            
+            // Variabel penanda nilai default awal gung untuk kontrol warna dinamis abu-abu/hitam
+            'default_materi': dbSubCpmk,
+            'default_pokok': dbPokok,
+            'default_pengalaman': match['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.',
+            'default_indikator': match['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik',
           };
         });
         _isLoading = false;
       });
     } catch (e) {
       debugPrint("Error init data: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // --- LOGIKA SIMPAN (UTUH DENGAN NOTIF POLESAN & PARSING FIELD BARU) ---
+  // --- LOGIKA SIMPAN FINAL: PAYLOAD BERSIH MENEMBAK KOLOM SUB_CPMK & POKOK_PEMBAHASAN GUNG ---
   Future<void> _simpanSemua() async {
     setState(() => _isLoading = true);
     try {
-      List<Map<String, dynamic>> dataToSave = _pertemuanData.map((e) {
-        return {
+      List<Map<String, dynamic>> dataToSave = [];
+      
+      for (var e in _pertemuanData) {
+        dataToSave.add({
           'rps_id': e['rps_id'],
           'minggu_ke': e['minggu_ke'],
-          'kemampuan_akhir': e['materi_controller'].text,
-          'metode_pembelajaran': e['metode_controller'].text,
+          'sub_cpmk': e['materi_controller'].text, // Menembak kolom sub_cpmk asli
+          'metode_pembelajaran': e['selected_metode'], 
           'bobot_nilai': int.tryParse(e['bobot_controller'].text) ?? 0,
-          // --- DIPETAKAN MULUS KE MAP UNTUK SERVICE DATABASE ---
           'pengalaman_belajar': e['pengalaman_controller'].text,
           'indikator_penilaian': e['indikator_controller'].text,
-        };
-      }).toList();
+          'pokok_pembahasan': e['pokok_controller'].text, // Menembak kolom pokok_pembahasan asli
+          'waktu': e['selected_waktu'], 
+        });
+      }
 
       await rpsService.saveRpsDetail(dataToSave);
       
@@ -95,9 +152,11 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal Menyimpan: $e"), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -118,7 +177,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
         ? const Center(child: CircularProgressIndicator())
         : Column(
             children: [
-              // Info Banner Singkat
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -134,8 +192,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
                   padding: const EdgeInsets.fromLTRB(15, 15, 15, 80), 
                   itemCount: _pertemuanData.length,
                   itemBuilder: (context, index) {
-                    final item = _pertemuanData[index];
-                    return _buildPertemuanCard(item);
+                    return _buildPertemuanCard(_pertemuanData[index]);
                   },
                 ),
               ),
@@ -144,8 +201,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
       bottomNavigationBar: _isLoading ? null : _buildBottomAction(),
     );
   }
-
-  // --- UI HELPER COMPONENTS ---
 
   Widget _buildPertemuanCard(Map<String, dynamic> item) {
     bool hasData = item['materi_controller'].text.isNotEmpty;
@@ -193,26 +248,81 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
                 _buildField(
                   controller: item['materi_controller'],
                   label: "Kemampuan Akhir / Materi",
-                  hint: "Masukan materi pembelajaran...",
+                  hint: "Masukkan materi pembelajaran...",
                   icon: Icons.menu_book_rounded,
                   maxLines: 3,
-                ),
-                const SizedBox(height: 15),
-                _buildField(
-                  controller: item['metode_controller'],
-                  label: "Metode Pembelajaran",
-                  hint: "Contoh: Ceramah, Diskusi, Praktikum",
-                  icon: Icons.psychology_rounded,
+                  isDefaultValue: item['materi_controller'].text == item['default_materi'],
                 ),
                 const SizedBox(height: 15),
                 
-                // --- KELOMPOK FIELD INPUT BARU UNTUK POIN 3 ---
+                _buildField(
+                  controller: item['pokok_controller'],
+                  label: "Pokok Pembahasan",
+                  hint: "Masukkan pokok pembahasan silabus...",
+                  icon: Icons.list_alt_rounded,
+                  isDefaultValue: item['pokok_controller'].text == item['default_pokok'],
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField<String>(
+                  value: _listMetode.contains(item['selected_metode']) ? item['selected_metode'] : _listMetode.last,
+                  items: _listMetode.map((String metode) {
+                    return DropdownMenuItem<String>(
+                      value: metode,
+                      child: Text(metode, style: const TextStyle(fontSize: 14)),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      item['selected_metode'] = newValue;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: "Metode Pembelajaran",
+                    prefixIcon: const Icon(Icons.psychology_rounded, size: 20, color: primaryColor),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    labelStyle: const TextStyle(fontSize: 13),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField<String>(
+                  value: _listWaktu.contains(item['selected_waktu']) ? item['selected_waktu'] : _listWaktu.last,
+                  items: _listWaktu.map((String waktu) {
+                    return DropdownMenuItem<String>(
+                      value: waktu,
+                      child: Text(waktu, style: const TextStyle(fontSize: 14)),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      item['selected_waktu'] = newValue;
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: "Waktu Pembelajaran",
+                    prefixIcon: const Icon(Icons.more_time_rounded, size: 20, color: primaryColor),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    labelStyle: const TextStyle(fontSize: 13),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                
                 _buildField(
                   controller: item['pengalaman_controller'],
                   label: "Pengalaman Belajar Mahasiswa",
                   hint: "Aktivitas nyata mahasiswa di kelas...",
                   icon: Icons.accessibility_new_rounded,
                   maxLines: 2,
+                  isDefaultValue: item['pengalaman_controller'].text == item['default_pengalaman'],
                 ),
                 const SizedBox(height: 15),
                 _buildField(
@@ -221,15 +331,16 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
                   hint: "Tolok ukur kriteria penilaian...",
                   icon: Icons.assignment_turned_in_rounded,
                   maxLines: 2,
+                  isDefaultValue: item['indikator_controller'].text == item['default_indikator'],
                 ),
                 const SizedBox(height: 15),
-
                 _buildField(
                   controller: item['bobot_controller'],
                   label: "Bobot Nilai (%)",
                   hint: "0",
                   icon: Icons.percent_rounded,
                   isNumber: true,
+                  isDefaultValue: false,
                 ),
               ],
             ),
@@ -246,13 +357,31 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     required IconData icon,
     int maxLines = 1,
     bool isNumber = false,
+    required bool isDefaultValue,
   }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      onChanged: (val) => setState(() {}), 
-      style: const TextStyle(fontSize: 14),
+      onChanged: (val) {
+        setState(() {}); 
+      }, 
+      onTap: () {
+        if (isDefaultValue) {
+          controller.clear();
+        } else {
+          controller.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: controller.text.length,
+          );
+        }
+        setState(() {});
+      },
+      style: TextStyle(
+        fontSize: 14, 
+        color: isDefaultValue ? Colors.grey : Colors.black87, 
+        fontWeight: isDefaultValue ? FontWeight.w500 : FontWeight.bold
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -286,7 +415,7 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
         width: double.infinity,
         height: 55,
         child: ElevatedButton.icon(
-          onPressed: _simpanSemua,
+          onPressed: _isLoading ? null : _simpanSemua,
           icon: const Icon(Icons.save_rounded, color: Colors.white),
           label: const Text("SIMPAN SEMUA PERTEMUAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
           style: ElevatedButton.styleFrom(

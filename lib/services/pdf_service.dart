@@ -13,7 +13,6 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // HEADER
               pw.Center(
                 child: pw.Text(
                   "RENCANA PEMBELAJARAN SEMESTER (RPS)",
@@ -22,7 +21,6 @@ class PdfService {
               ),
               pw.SizedBox(height: 20), 
 
-              // TABEL INFORMASI MK
               pw.TableHelper.fromTextArray(
                 context: context,
                 data: [
@@ -39,17 +37,16 @@ class PdfService {
               ),
               pw.SizedBox(height: 20), 
 
-              // BAGIAN CPMK & CPL
               pw.Text(
                 "Capaian Pembelajaran (OBE Mapping):",
                 style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
-              pw.SizedBox(height: 10), // Menggunakan const agar RAM enteng
+              pw.SizedBox(height: 10),
 
               pw.TableHelper.fromTextArray(
                 context: context,
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headers: const ['No', 'CPMK (Deskripsi)', 'Korelasi CPL'], // Menggunakan const
+                headers: const ['No', 'CPMK (Deskripsi)', 'Korelasi CPL'],
                 data: List.generate(mappingData.length, (index) {
                   final item = mappingData[index];
                   return [
@@ -65,7 +62,6 @@ class PdfService {
       ),
     );
 
-    // Menampilkan Preview PDF sebelum dicetak/save
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
