@@ -16,6 +16,15 @@ class PdfHelper {
     final String rpsIdReal = rps['id']?.toString() ?? '';
     final String mkId = rps['mata_kuliah_id']?.toString() ?? rps['mata_kuliah']?['id']?.toString() ?? '';
 
+    // --- LOGIKA PEMBACAAN LOGO ASSET LOKAL FLUTTER WEB ---
+    pw.ImageProvider? logoKampusImage;
+    try {
+      logoKampusImage = await imageFromAssetBundle('assets/images/logoGLOBAL.webp');
+      print("SUCCESS: Logo Bina Sarana Global berhasil di-load ke PDF bundle gung!");
+    } catch (e) {
+      print("ERROR: Gagal memuat logo asset via bundle: $e");
+    }
+
     String namaKaprodi = "Siti Maisaroh Mustafa, S.S., M.Pd.";
     String? signatureUrlKaprodi;
     try {
@@ -124,9 +133,12 @@ class PdfHelper {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+        // Set margin aman agar boks tabel simetris gung
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         build: (pw.Context context) {
+          const double pageWidth = 752;
           return [
+            // --- 1. KOP SURAT RESMI INSTITUSI DENGAN INTEGRASI LOGO ASSET LOKAL ---
             pw.Container(
               decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 1.5, color: PdfColors.black))),
               padding: const pw.EdgeInsets.only(bottom: 6),
@@ -138,17 +150,22 @@ class PdfHelper {
                     width: 45,
                     height: 45,
                     margin: const pw.EdgeInsets.only(right: 12),
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                     alignment: pw.Alignment.center,
-                    child: pw.Text("LOGO", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    child: logoKampusImage != null 
+                        ? pw.Image(logoKampusImage, fit: pw.BoxFit.contain)
+                        : pw.Container(
+                            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                            alignment: pw.Alignment.center,
+                            child: pw.Text("LOGO", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                          ),
                   ),
                   pw.Expanded(
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text("INSTITUT TEKNOLOGI DAN BISNIS BINA SARANA GLOBAL", style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                        pw.Text("FAKULTAS TEKNOLOGI INFORMASI DAN KOMUNIKASI", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
-                        pw.Text("PROGRAM STUDI TEKNIK INFORMATIKA", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.normal, color: PdfColors.grey700)),
+                        pw.Text("INSTITUT TEKNOLOGI DAN BISNIS BINA SARANA GLOBAL", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                        pw.Text("FAKULTAS TEKNOLOGI INFORMASI DAN KOMUNIKASI", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                        pw.Text("PROGRAM STUDI TEKNIK INFORMATIKA", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
                       ],
                     ),
                   ),
@@ -156,263 +173,294 @@ class PdfHelper {
               ),
             ),
 
+            // Judul Dokumen Utama
             pw.Center(child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
             pw.SizedBox(height: 8),
 
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
-              columnWidths: const {
-                0: pw.FlexColumnWidth(1.5), 
-                1: pw.FlexColumnWidth(2.5), 
-                2: pw.FlexColumnWidth(2.5), 
-                3: pw.FlexColumnWidth(2.5), 
-              },
-              children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey100),
-                  children: [
-                    _buildCellGrid("Mata Kuliah", isLabel: true),
-                    _buildCellGrid("Kode Mata Kuliah", isLabel: true),
-                    _buildCellGrid("Rumpun Mata Kuliah", isLabel: true),
-                    pw.Table(
-                      border: const pw.TableBorder(verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
-                      children: [
-                        pw.TableRow(
-                          children: [
-                            _buildCellGrid("Bobot (SKS)", isLabel: true),
-                            _buildCellGrid("Semester", isLabel: true),
-                            _buildCellGrid("Tanggal Penyusunan", isLabel: true),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid(namaMk),
-                    _buildCellGrid(kodeMk),
-                    _buildCellGrid("Ilmu Komputer"),
-                    pw.Table(
-                      border: const pw.TableBorder(verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
-                      children: [
-                        pw.TableRow(
-                          children: [
-                            _buildCellGrid(sksMk),
-                            _buildCellGrid(semesterMk),
-                            _buildCellGrid("${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}"),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey100),
-                  children: [
-                    _buildCellGrid("Otorisasi", isLabel: true),
-                    _buildCellGrid("Nama Koordinator Pengembang RPS", isLabel: true),
-                    _buildCellGrid("Koordinator Bidang Keahlian\n(Jika Ada)", isLabel: true),
-                    _buildCellGrid("Ka. Program Studi", isLabel: true),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Tanda Tangan\nSistem Terverifikasi", styleItalic: true),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.SizedBox(height: 6),
-                        _buildBarcodeBox(), 
-                        _buildCellGrid("Dr. M. Ramaddan Julianti, M.T.", isCenter: true),
-                      ],
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.SizedBox(height: 6),
-                        _buildBarcodeBox(),
-                        _buildCellGrid("-", isCenter: true),
-                      ],
-                    ),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.SizedBox(height: 6),
-                        _buildBarcodeBox(),
-                        _buildCellGrid(namaKaprodi, isCenter: true),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
+            // --- TAMENG PENGUNCI LEBAR 1: Mengunci Lebar Grid Atas Agar Tidak Lewat Batas Kanan Lembar Cetak gung ---
+            pw.SizedBox(
+              width: pageWidth,
+              child: pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(1.5), 
+                  1: pw.FlexColumnWidth(2.0), 
+                  2: pw.FlexColumnWidth(2.0), 
+                  3: pw.FlexColumnWidth(2.8),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                    children: [
+                      _buildCellGrid("Mata Kuliah"),
+                      _buildCellGrid("Kode Mata Kuliah"),
+                      _buildCellGrid("Rumpun Mata Kuliah"),
+                      pw.Table(
+                        border: const pw.TableBorder(verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
+                        children: [
+                          pw.TableRow(
+                            children: [
+                              _buildCellGrid("Bobot (SKS)"),
+                              _buildCellGrid("Semester"),
+                              _buildCellGrid("Tanggal Penyusunan"),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid(namaMk),
+                      _buildCellGrid(kodeMk),
+                      _buildCellGrid("Ilmu Komputer"),
+                      pw.Table(
+                        border: const pw.TableBorder(verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
+                        children: [
+                          pw.TableRow(
+                            children: [
+                              _buildCellGrid(sksMk),
+                              _buildCellGrid(semesterMk),
+                              _buildCellGrid("${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}"),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                    children: [
+                      _buildCellGrid("Otorisasi"),
+                      _buildCellGrid("Nama Koordinator Pengembang RPS"),
+                      _buildCellGrid("Koordinator Bidang Keahlian\n(Jika Ada)"),
+                      _buildCellGrid("Ka. Program Studi"),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Tanda Tangan\nSistem Terverifikasi"), 
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.SizedBox(height: 6),
+                          _buildBarcodeBox(), 
+                          _buildCellGrid("Dr. M. Ramaddan Julianti, M.T.", isCenter: true),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.SizedBox(height: 6),
+                          _buildBarcodeBox(),
+                          _buildCellGrid("-", isCenter: true),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.SizedBox(height: 6),
+                          _buildBarcodeBox(),
+                          _buildCellGrid(namaKaprodi, isCenter: true),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
 
-            pw.Table(
-              border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
-              columnWidths: const {0: pw.FixedColumnWidth(126), 1: pw.FlexColumnWidth(1)},
-              children: [
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Deskripsi Mata Kuliah", isLabel: true),
-                    _buildCellGrid(rps['mata_kuliah']?['deskripsi']?.toString() ?? 'Belum ada deskripsi mata kuliah yang disediakan oleh Kaprodi.'),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Model Pembelajaran", isLabel: true),
-                    _buildCellGrid(metodeBelajarText), 
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Capaian Pembelajaran\nLulusan (CPL)", isLabel: true),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(5),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: listCplDinamis.isEmpty
-                            ? [pw.Text("• Belum ada Standar CPL prodi yang dipetakan oleh Kaprodi untuk MK ini.", style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700))]
-                            : listCplDinamis.map((cpl) => pw.Padding(
-                                padding: const pw.EdgeInsets.only(bottom: 2.5),
-                                child: pw.Text("• [${cpl['kode_cpl']}] : ${cpl['deskripsi']}", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
-                              )).toList(),
+            // --- TAMENG PENGUNCI LEBAR 2: Mengunci Lebar Detail Capaian Silabus gung ---
+            pw.SizedBox(
+              width: pageWidth,
+              child: pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
+                columnWidths: const {
+                  0: pw.FixedColumnWidth(136.2), // Mengunci ukuran sisi kiri boks pembatas agar serasi gung
+                  1: pw.FlexColumnWidth(1.0),
+                },
+                children: [
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Deskripsi Mata Kuliah"),
+                      _buildCellGrid(rps['mata_kuliah']?['deskripsi']?.toString() ?? 'Belum ada deskripsi mata kuliah yang disediakan oleh Kaprodi.'),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Model Pembelajaran"),
+                      _buildCellGrid(metodeBelajarText), 
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Capaian Pembelajaran\nLulusan (CPL)"),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: listCplDinamis.isEmpty
+                              ? [pw.Text("Belum ada Standar CPL prodi yang dipetakan oleh Kaprodi untuk MK ini.", style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey900))]
+                              : listCplDinamis.map((cpl) => pw.Padding(
+                                  padding: const pw.EdgeInsets.only(bottom: 2.5),
+                                  child: pw.Text("[${cpl['kode_cpl']}] : ${cpl['deskripsi']}", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
+                                )).toList(),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Capaian Pembelajaran\nMata Kuliah (CPMK)", isLabel: true),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(4),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: listCpmkDinamis.isEmpty 
-                            ? [pw.Text("-", style: const pw.TextStyle(fontSize: 7))]
-                            : listCpmkDinamis.map((cpmk) {
-                                final String kodeCpmkAsli = cpmk['kode_cpmk']?.toString() ?? 'CPMK';
-                                final String deskripsiAsli = cpmk['deskripsi']?.toString() ?? '-';
-                                return pw.Padding(
-                                  padding: const pw.EdgeInsets.only(bottom: 2),
-                                  child: pw.Text("• [$kodeCpmkAsli] : $deskripsiAsli", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
-                                );
-                              }).toList(),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Capaian Pembelajaran\nMata Kuliah (CPMK)"),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: listCpmkDinamis.isEmpty 
+                              ? [pw.Text("-", style: const pw.TextStyle(fontSize: 7))]
+                              : listCpmkDinamis.map((cpmk) {
+                                  final String kodeCpmkAsli = cpmk['kode_cpmk']?.toString() ?? 'CPMK';
+                                  final String deskripsiAsli = cpmk['deskripsi']?.toString() ?? '-';
+                                  return pw.Padding(
+                                    padding: const pw.EdgeInsets.only(bottom: 2),
+                                    child: pw.Text("[$kodeCpmkAsli] : $deskripsiAsli", style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
+                                  );
+                                }).toList(),
+                        ),
                       ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Penilaian"),
+                      _buildCellGrid(penilaianText), 
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      _buildCellGrid("Bahan Kajian /\nMateri Pembelajaran"),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(bahanKajianText, style: const pw.TextStyle(fontSize: 7, color: PdfColors.black)),
                     ),
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    _buildCellGrid("Penilaian", isLabel: true),
-                    _buildCellGrid(penilaianText), 
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Bahan Kajian /\nMateri Pembelajaran", isLabel: true),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text(bahanKajianText, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
-                    ),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _buildCellGrid("Daftar Referensi", isLabel: true),
+                    _buildCellGrid("Daftar Referensi"),
                     _buildCellGrid(referensiText), 
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    _buildCellGrid("Ambang Batas Kelulusan", isLabel: true),
+                    _buildCellGrid("Ambang Batas Kelulusan"),
                     _buildCellGrid(ambangBatasText), 
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    _buildCellGrid("Dosen Pengampu", isLabel: true),
-                    _buildCellGrid("Nama Tim Dosen Pengampu Utama Kelas: $namaDosen"),
+                    _buildCellGrid("Dosen Pengampu"),
+                    _buildCellGrid("$namaDosen"),
                   ],
                 ),
                 pw.TableRow(
                   children: [
-                    _buildCellGrid("Mata Kuliah Prasyarat\n(Jika Ada)", isLabel: true),
+                    _buildCellGrid("Mata Kuliah Prasyarat\n(Jika Ada)"),
                     _buildCellGrid(prasyaratText), 
                   ],
                 ),
               ],
             ),
-            pw.SizedBox(height: 12),
+          ),
+          pw.SizedBox(height: 12),
 
-            pw.Text("MATRIKS PELAKSANAAN RENCANA PERTEMUAN MINGGUAN (1 - 14):", style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 4),
-            pw.TableHelper.fromTextArray(
+          // Header Tabel Mingguan
+          pw.Text("MATRIKS PELAKSANAAN RENCANA PERTEMUAN MINGGUAN (1 - 14):", style: pw.TextStyle(fontSize: 7, color: PdfColors.black)),
+          pw.SizedBox(height: 4),
+          
+          // --- TAMENG PENGUNCI LEBAR 3: Mengunci Lebar Matriks Pertemuan Mingguan 1 s/d 14 Sejajar Sempurna gung ---
+          pw.SizedBox(
+            width: pageWidth,
+            child: pw.TableHelper.fromTextArray(
               headers: const ['Pertemuan Ke-', 'Sub CPMK', 'Pokok Pembahasan', 'Metode Pembelajaran', 'Waktu', 'Pengalaman Belajar', 'Indikator Penilaian', 'Bobot Penilaian (%)'],
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5),
+              headerStyle: const pw.TextStyle(fontSize: 7, color: PdfColors.black),
               headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
-              cellStyle: const pw.TextStyle(fontSize: 7),
+              cellStyle: const pw.TextStyle(fontSize: 6.5),
               columnWidths: const {
                 0: pw.FixedColumnWidth(55), 
-                1: pw.FlexColumnWidth(2),   
-                2: pw.FlexColumnWidth(2),   
-                3: pw.FlexColumnWidth(1.2), 
-                4: pw.FixedColumnWidth(40), 
-                5: pw.FlexColumnWidth(2),   
-                6: pw.FlexColumnWidth(1.5), 
-                7: pw.FixedColumnWidth(55), 
+                1: pw.FlexColumnWidth(1.5),   
+                2: pw.FlexColumnWidth(1.5),   
+                3: pw.FlexColumnWidth(1.1), 
+                4: pw.FixedColumnWidth(35), 
+                5: pw.FlexColumnWidth(1.5),   
+                6: pw.FlexColumnWidth(1.4), 
+                7: pw.FixedColumnWidth(35), // Dipatok presisi gung biar pembatas kanannya nembak lurus ke atas gung
               },
-              // --- SEKARANG BERDIRI SENDIRI MURNI: Membaca langsung kolom fisik baru sub_cpmk dan pokok_pembahasan gung ---
               data: listPertemuan.map((p) => [
                 "Minggu ${p['minggu_ke']}",
-                p['sub_cpmk'] ?? '-', // Membaca kolom sub_cpmk asli
-                p['pokok_pembahasan'] ?? '-', // Membaca kolom pokok_pembahasan asli
+                p['sub_cpmk'] ?? '-', 
+                p['pokok_pembahasan'] ?? '-', 
                 p['metode_pembelajaran'] ?? 'Ceramah & Diskusi',
-                p['waktu'] ?? '150 Menit', // Membaca kolom waktu asli
+                p['waktu'] ?? '150 Menit', 
                 p['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.',
                 p['indikator_penilaian'] ?? 'Ketepatan pemahaman teori & hasil demo praktik',
                 "${p['bobot_nilai'] ?? 0}%", 
               ]).toList(),
             ),
+          ),
 
-            pw.SizedBox(height: 20),
+          pw.SizedBox(height: 20),
 
-            pw.Row(
+          // Area Tanda Tangan Bawah
+          pw.SizedBox(
+            width: pageWidth,
+            child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Column(
                   children: [
-                    pw.Text("Menyetujui, Ketua Program Studi prodi", style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.Text("Menyetujui, Ketua Program Studi prodi", style: const pw.TextStyle(fontSize: 7)),
                     pw.SizedBox(height: 2),
                     pw.Container(
                       height: 35,
                       width: 75,
                       child: imageKaprodi != null ? pw.Image(imageKaprodi, fit: pw.BoxFit.contain) : pw.SizedBox(),
                     ),
-                    pw.Text(namaKaprodi, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),
+                    pw.Text(namaKaprodi, style: const pw.TextStyle(fontSize: 7)),
                   ],
                 ),
                 pw.Column(
                   children: [
-                    pw.Text("Tangerang, ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}", style: const pw.TextStyle(fontSize: 7.5)),
-                    pw.Text("Dosen Pengampu Mata Kuliah", style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.Text("Tangerang, ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}", style: const pw.TextStyle(fontSize: 7)),
+                    pw.Text("Dosen Pengampu Mata Kuliah", style: const pw.TextStyle(fontSize: 7)),
                     pw.SizedBox(height: 2),
                     pw.Container(
                       height: 35,
                       width: 75,
                       child: imageDosen != null ? pw.Image(imageDosen, fit: pw.BoxFit.contain) : pw.SizedBox(),
                     ),
-                    pw.Text(namaDosen, style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline)),
+                    pw.Text(namaDosen, style: const pw.TextStyle(fontSize: 7)),
                   ],
                 ),
               ],
             ),
+          ),
           ];
         },
       ),
     );
 
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+    try {
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async {
+          return pdf.save();
+        },
+      );
+    } catch (e, s) {
+      print("ERROR PDF: $e");
+      print(s);
+      rethrow;
+    }
   }
 
   static Future<pw.ImageProvider?> _downloadImage(String url) async {
@@ -435,21 +483,19 @@ class PdfHelper {
         color: PdfColors.grey200,
       ),
       alignment: pw.Alignment.center,
-      child: pw.Text("QR", style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+      child: pw.Text("QR", style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
     );
   }
 
-  static pw.Widget _buildCellGrid(String text, {bool isLabel = false, bool styleItalic = false, bool isCenter = false}) {
+  static pw.Widget _buildCellGrid(String text, {bool isCenter = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       child: pw.Text(
         text,
         textAlign: isCenter ? pw.TextAlign.center : pw.TextAlign.left,
-        style: pw.TextStyle(
+        style: const pw.TextStyle(
           fontSize: 7,
-          fontWeight: isLabel ? pw.FontWeight.bold : pw.FontWeight.normal,
-          fontStyle: styleItalic ? pw.FontStyle.italic : pw.FontStyle.normal,
-          color: isLabel ? PdfColors.black : PdfColors.grey900,
+          color: PdfColors.black,
         ),
       ),
     );

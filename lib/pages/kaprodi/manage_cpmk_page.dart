@@ -23,6 +23,9 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
   // --- FITUR TAMBAHAN PROTEKSI: Mencegah trigger klik ganda pada sistem web ---
   bool _isSaving = false;
 
+  // --- FILTER STATE BARU AGUNG: Menyimpan ID Mata Kuliah Terpilih untuk Filter List Utama ---
+  String? _filterMkId;
+
   @override
   void initState() {
     super.initState();
@@ -292,6 +295,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
       ),
       body: Column(
         children: [
+          // --- HEADER PANEL BANNER BARU AGUNG ---
           Container(
             height: 20,
             decoration: const BoxDecoration(
@@ -299,20 +303,77 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
             ),
           ),
+          
+          // --- ADAPTASI POIN FITUR BARU: PANEL DROPDOWN FILTER MATA KULIAH ACUAN KAPRODI ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(15, 15, 15, 5),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
+                ],
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: _filterMkId,
+                hint: const Text("Filter Berdasarkan Mata Kuliah", style: TextStyle(fontSize: 14, color: Colors.grey)),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.filter_list_alt, size: 20, color: primaryColor),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
+                ),
+                items: [
+                  // Sediakan opsi reset/pilihan semua mata kuliah gung
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text("Semua Mata Kuliah (Tampilkan Semua)", style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
+                  ),
+                  ..._listMataKuliah.map((mk) {
+                    return DropdownMenuItem<String>(
+                      value: mk['id'].toString(),
+                      child: Text(mk['nama_mk'] ?? '-', overflow: TextOverflow.ellipsis),
+                    );
+                  }),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _filterMkId = value; // Memperbarui parameter filter state gung
+                  });
+                },
+              ),
+            ),
+          ),
+          
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              // --- KOREKSI POIN SINKRONISASI: Menggunakan variabel future state terdaftar agar bisa di-refresh total ---
               future: _cpmkFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) return const Center(child: Text("Belum ada data master CPMK prodi."));
 
+                // --- SINKRONISASI FILTER AGUNG: Menyaring list data Supabase secara real-time di sisi client gung ---
+                final filteredList = _filterMkId == null
+                    ? list
+                    : list.where((element) => element['mata_kuliah_id']?.toString() == _filterMkId).toList();
+
+                if (filteredList.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "Tidak ada data Master CPMK untuk mata kuliah ini gung.",
+                      style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                    ),
+                  );
+                }
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(15),
-                  itemCount: list.length,
+                  itemCount: filteredList.length,
                   itemBuilder: (context, index) {
-                    final cpmk = list[index];
+                    final cpmk = filteredList[index];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -335,12 +396,10 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // --- FITUR EDIT MASTER CPMK ---
                             IconButton(
                               icon: const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 26),
                               onPressed: () => _showEditDialog(cpmk),
                             ),
-                            // --- FITUR HAPUS MASTER CPMK ---
                             IconButton(
                               icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 24),
                               onPressed: () async {
