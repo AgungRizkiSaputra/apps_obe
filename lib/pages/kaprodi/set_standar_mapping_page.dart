@@ -11,7 +11,6 @@ class SetStandarMappingPage extends StatefulWidget {
 class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
   final rpsService = RpsService();
   
-  // --- WARNA KHUSUS KAPRODI: TEAL SOLID (BEDA DENGAN DOSEN, TANPA GRADASI) ---
   static const Color primaryColor = Color(0xFF00A896);
   
   List<Map<String, dynamic>> _allMk = [];
@@ -24,7 +23,6 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
     _loadDashboardData();
   }
 
-  // --- LOGIKA LOAD DATA (UTUH 100%) ---
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
@@ -33,7 +31,7 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
       for (var mk in mkData) {
         final standar = await rpsService.getStandarCplIds(mk['id'].toString());
         if (standar.isNotEmpty) {
-          sudahSet.add(mk['id'].toString());
+          alreadySetAdd(mk['id'].toString(), sudahSet);
         }
       }
 
@@ -46,6 +44,10 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
       debugPrint("Error: $e");
       setState(() => _isLoading = false);
     }
+  }
+
+  void alreadySetAdd(String id, List<String> list) {
+    if (!list.contains(id)) list.add(id);
   }
 
   @override
@@ -63,7 +65,6 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Header Aksen
                 Container(
                   height: 20,
                   width: double.infinity,
@@ -140,7 +141,6 @@ class _SetStandarMappingPageState extends State<SetStandarMappingPage> {
   }
 }
 
-// --- SUB-HALAMAN: FORM UNTUK ATUR STANDAR ---
 class FormMappingMk extends StatefulWidget {
   final Map<String, dynamic> mkData;
   final RpsService rpsService;
@@ -152,7 +152,6 @@ class FormMappingMk extends StatefulWidget {
 }
 
 class _FormMappingMkState extends State<FormMappingMk> {
-  // --- WARNA KHUSUS KAPRODI KONSISTEN TEAL SOLID ---
   static const Color primaryColor = Color(0xFF00A896);
   
   List<Map<String, dynamic>> _allCpl = [];
@@ -165,7 +164,6 @@ class _FormMappingMkState extends State<FormMappingMk> {
     _loadCplData();
   }
 
-  // --- LOGIKA LOAD CPL (UTUH 100%) ---
   Future<void> _loadCplData() async {
     final cplData = await widget.rpsService.getAllCpl();
     final standarIds = await widget.rpsService.getStandarCplIds(widget.mkData['id'].toString());
@@ -176,7 +174,6 @@ class _FormMappingMkState extends State<FormMappingMk> {
     });
   }
 
-  // --- LOGIKA SAVE (UTUH 100%) ---
   void _handleSave() async {
     setState(() => _isLoading = true);
     await widget.rpsService.saveStandarMapping(widget.mkData['id'].toString(), _selectedCplIds);
@@ -224,7 +221,7 @@ class _FormMappingMkState extends State<FormMappingMk> {
                   itemBuilder: (context, index) {
                     final cpl = _allCpl[index];
                     final id = cpl['id'].toString();
-                    final isSelected = _selectedCplIds.contains(id);
+                    final bool isSelected = _selectedCplIds.contains(id);
                     
                     return Card(
                       elevation: 0,

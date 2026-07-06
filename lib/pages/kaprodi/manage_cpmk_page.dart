@@ -15,48 +15,45 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
   final _kodeController = TextEditingController();
   final _deskripsiController = TextEditingController();
   String? _selectedMkId;
+  String? _selectedCplId; // Parameter penampung baru gung
   List<Map<String, dynamic>> _listMataKuliah = [];
-  
-  // --- KOREKSI TOTAL ANTI LAYAR MERAH: Mengubah deklarasi nullable tanpa kata kunci 'late' ---
-  Future<List<Map<String, dynamic>>>? _cpmkFuture;
-  
-  // --- FITUR TAMBAHAN PROTEKSI: Mencegah trigger klik ganda pada sistem web ---
-  bool _isSaving = false;
+  List<Map<String, dynamic>> _listCpl = []; // List data master CPL prodi gung
 
-  // --- FILTER STATE BARU AGUNG: Menyimpan ID Mata Kuliah Terpilih untuk Filter List Utama ---
+  Future<List<Map<String, dynamic>>>? _cpmkFuture;
+  bool _isSaving = false;
   String? _filterMkId;
 
   @override
   void initState() {
     super.initState();
-    _loadMataKuliah();
-    _initCpmkData(); // Inisialisasi kueri pertama kali saat halaman dibuka gung
+    _loadInitialData();
+    _initCpmkData();
   }
 
-  // --- KOREKSI POIN UTAMA EDIT/HAPUS: Mengunci fungsi kueri agar bisa dipanggil ulang pasca transaksi ---
   void _initCpmkData() {
     _cpmkFuture = () async {
       final response = await rpsService.supabase
           .from('cpmk')
-          .select('*, mata_kuliah(nama_mk)')
-          .filter('rps_id', 'is', null) // Memastikan hanya menampilkan standar kurikulum dari Kaprodi
+          .select('*, mata_kuliah(nama_mk), cpl(kode_cpl)')
+          .filter('rps_id', 'is', null) 
           .order('kode_cpmk', ascending: true);
       return List<Map<String, dynamic>>.from(response);
     }();
   }
 
-  Future<void> _loadMataKuliah() async {
+  Future<void> _loadInitialData() async {
     try {
-      final data = await rpsService.getAllMataKuliah();
+      final mkData = await rpsService.getAllMataKuliah();
+      final cplData = await rpsService.getAllCpl();
       setState(() {
-        _listMataKuliah = data;
+        _listMataKuliah = mkData;
+        _listCpl = cplData;
       });
     } catch (e) {
-      debugPrint("Gagal load mata kuliah: $e");
+      debugPrint("Gagal load initial data: $e");
     }
   }
 
-  // Pembaruan fungsi refresh agar memaksa FutureBuilder menembak ulang Supabase secara bersih gung
   void _refresh() {
     setState(() {
       _initCpmkData();
@@ -70,6 +67,10 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
     }
     if (_selectedMkId == null) {
       _showWarning("Silakan pilih Mata Kuliah terlebih dahulu!");
+      return false;
+    }
+    if (_selectedCplId == null) {
+      _showWarning("Silakan pilih induk CPL Prodi Berelasi!");
       return false;
     }
     return true;
@@ -90,6 +91,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
     _kodeController.clear();
     _deskripsiController.clear();
     _selectedMkId = null;
+    _selectedCplId = null; // Reset default gung
 
     showDialog(
       context: context,
@@ -120,6 +122,28 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   onChanged: (val) => setDialogState(() => _selectedMkId = val),
                 ),
                 const SizedBox(height: 15),
+
+                // --- DROPDOWN RELASI CPL BARU GUNG ---
+                DropdownButtonFormField<String>(
+                  value: _selectedCplId,
+                  hint: const Text("Pilih CPL Prodi Berelasi"),
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.star_outline_rounded, size: 20, color: primaryColor),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                  items: _listCpl.map((cpl) {
+                    return DropdownMenuItem<String>(
+                      value: cpl['id'].toString(),
+                      child: Text("${cpl['kode_cpl']} - ${cpl['deskripsi']}", overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setDialogState(() => _selectedCplId = val),
+                ),
+                const SizedBox(height: 15),
+
                 // Input Kode CPMK
                 TextField(
                   controller: _kodeController,
@@ -133,6 +157,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   ),
                 ),
                 const SizedBox(height: 15),
+
                 // Input Deskripsi CPMK
                 TextField(
                   controller: _deskripsiController,
@@ -164,6 +189,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                     'kode_cpmk': _kodeController.text.trim(),
                     'deskripsi': _deskripsiController.text.trim(),
                     'mata_kuliah_id': _selectedMkId!,
+                    'cpl_id': _selectedCplId!, // Berhasil ikat kaku gung
                     'rps_id': null 
                   });
 
@@ -187,11 +213,11 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
     );
   }
 
-  // --- FITUR EDIT MODAL MASTER CPMK KAPRODI ---
   void _showEditDialog(Map<String, dynamic> cpmk) {
     final editKodeController = TextEditingController(text: cpmk['kode_cpmk']);
     final editDeskripsiController = TextEditingController(text: cpmk['deskripsi']);
     String? editSelectedMkId = cpmk['mata_kuliah_id']?.toString();
+    String? editSelectedCplId = cpmk['cpl_id']?.toString(); // Tarik id relasinya gung
     final String cpmkId = cpmk['id'].toString();
 
     showDialog(
@@ -222,6 +248,28 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   onChanged: (val) => setDialogState(() => editSelectedMkId = val),
                 ),
                 const SizedBox(height: 15),
+
+                // --- DROPDOWN EDIT RELASI CPL GUNG ---
+                DropdownButtonFormField<String>(
+                  value: editSelectedCplId,
+                  hint: const Text("Pilih CPL Prodi Berelasi"),
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.star_outline_rounded, size: 20, color: primaryColor),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: _listCpl.map((cpl) {
+                    return DropdownMenuItem<String>(
+                      value: cpl['id'].toString(),
+                      child: Text("${cpl['kode_cpl']} - ${cpl['deskripsi']}", overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (val) => setDialogState(() => editSelectedCplId = val),
+                ),
+                const SizedBox(height: 15),
+
                 TextField(
                   controller: editKodeController,
                   decoration: InputDecoration(
@@ -252,8 +300,8 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
               onPressed: _isSaving ? null : () async {
-                if (editKodeController.text.trim().isEmpty || editDeskripsiController.text.trim().isEmpty || editSelectedMkId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Semua kolom wajib diisi!"), backgroundColor: Colors.orange));
+                if (editKodeController.text.trim().isEmpty || editDeskripsiController.text.trim().isEmpty || editSelectedMkId == null || editSelectedCplId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Semua kolom termasuk CPL wajib diisi!"), backgroundColor: Colors.orange));
                   return;
                 }
 
@@ -261,7 +309,13 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 setState(() => _isSaving = true);
 
                 try {
-                  await rpsService.updateMasterCpmk(cpmkId, editKodeController.text.trim(), editDeskripsiController.text.trim(), editSelectedMkId!);
+                  await rpsService.updateMasterCpmk(
+                    cpmkId, 
+                    editKodeController.text.trim(), 
+                    editDeskripsiController.text.trim(), 
+                    editSelectedMkId!,
+                    cplId: editSelectedCplId, // Update aman gung
+                  );
                   if (mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Berhasil memperbarui master CPMK"), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
@@ -295,7 +349,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
       ),
       body: Column(
         children: [
-          // --- HEADER PANEL BANNER BARU AGUNG ---
           Container(
             height: 20,
             decoration: const BoxDecoration(
@@ -304,7 +357,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
             ),
           ),
           
-          // --- ADAPTASI POIN FITUR BARU: PANEL DROPDOWN FILTER MATA KULIAH ACUAN KAPRODI ---
           Padding(
             padding: const EdgeInsets.fromLTRB(15, 15, 15, 5),
             child: Container(
@@ -326,7 +378,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
                 items: [
-                  // Sediakan opsi reset/pilihan semua mata kuliah gung
                   const DropdownMenuItem<String>(
                     value: null,
                     child: Text("Semua Mata Kuliah (Tampilkan Semua)", style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor)),
@@ -340,7 +391,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 ],
                 onChanged: (value) {
                   setState(() {
-                    _filterMkId = value; // Memperbarui parameter filter state gung
+                    _filterMkId = value;
                   });
                 },
               ),
@@ -355,7 +406,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) return const Center(child: Text("Belum ada data master CPMK prodi."));
 
-                // --- SINKRONISASI FILTER AGUNG: Menyaring list data Supabase secara real-time di sisi client gung ---
                 final filteredList = _filterMkId == null
                     ? list
                     : list.where((element) => element['mata_kuliah_id']?.toString() == _filterMkId).toList();
@@ -374,6 +424,8 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                   itemCount: filteredList.length,
                   itemBuilder: (context, index) {
                     final cpmk = filteredList[index];
+                    final String cplCode = cpmk['cpl']?['kode_cpl'] ?? 'Belum Set CPL';
+                    
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -388,7 +440,8 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                           backgroundColor: primaryColor.withOpacity(0.1),
                           child: const Icon(Icons.bookmark, color: primaryColor),
                         ),
-                        title: Text("${cpmk['kode_cpmk'] ?? '-'} • ${cpmk['mata_kuliah']?['nama_mk'] ?? '-'}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        // --- MENAMPILKAN KODE CPL PENGIKAT DI LIST UTAMA AGAR SINKRON GUNG ---
+                        title: Text("${cpmk['kode_cpmk'] ?? '-'} [$cplCode] • ${cpmk['mata_kuliah']?['nama_mk'] ?? '-'}", style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(cpmk['deskripsi'] ?? '-', style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.3)),
@@ -425,7 +478,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                                     await rpsService.deleteMasterCpmk(cpmk['id'].toString());
                                     if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Master CPMK berhasil dihapus"), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
-                                      _refresh(); // Memaksa re-query instan gung
+                                      _refresh();
                                     }
                                   } catch (e) {
                                     if (mounted) {

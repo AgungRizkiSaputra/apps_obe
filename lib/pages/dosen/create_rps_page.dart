@@ -110,7 +110,6 @@ class _CreateRpsPageState extends State<CreateRpsPage> {
     );
   }
 
-  // --- KOREKSI TOTAL POIN 1: Mengoper data mentah sebagai map tanpa menyimpan ke database dulu gung ---
   void _handleLanjutKeMapping() {
     if (!_isInputValid()) return;
     

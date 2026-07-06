@@ -6,18 +6,20 @@ class CpmkMappingGroup {
   String? selectedMasterCpmkId;
   String? selectedKodeCpmk;
   String deskripsiCpmk;
+  String? cplId; 
 
   CpmkMappingGroup({
     this.selectedMasterCpmkId,
     this.selectedKodeCpmk,
     this.deskripsiCpmk = '',
+    this.cplId,
   });
 }
 
 class MappingPage extends StatefulWidget {
   final Map<String, dynamic> rpsData;
   final bool isRevision;
-  final bool isBelumSimpanDatabase; // Kontrol penanda alur tunda gung
+  final bool isBelumSimpanDatabase; 
 
   const MappingPage({
     super.key, 
@@ -122,7 +124,7 @@ class _MappingPageState extends State<MappingPage> {
 
   Future<void> _simpanMapping() async {
     if (mappingGroups.isEmpty) {
-      _showCustomNotif("Silakan pilih minimal 1 Kode CPMK pada pilihan di atas.", Colors.orange);
+      _showCustomNotif("Silakan pilih minimal 1 Kode CPMK pada pilihan di bawah target CPL.", Colors.orange);
       return;
     }
 
@@ -133,7 +135,6 @@ class _MappingPageState extends State<MappingPage> {
 
     setState(() => isLoading = true);
     try {
-      // --- KOREKSI TOTAL VALIDASI POIN UTAMA AGUNG: Mendeteksi alur tunda secara pintar otomatis ---
       String rpsId = widget.rpsData['id']?.toString() ?? '';
       final bool apakahDokumenBaru = (rpsId.isEmpty || rpsId == 'null');
 
@@ -159,10 +160,6 @@ class _MappingPageState extends State<MappingPage> {
         await _rpsService.deleteExistingMapping(rpsId);
       }
 
-      List<Map<String, dynamic>> mappingData = selectedCplIds.map((id) {
-        return {'cpl_id': id, 'bobot': 0}; 
-      }).toList();
-
       for (var grup in mappingGroups) {
         String kodeCpmkTerverifikasi = grup.selectedKodeCpmk ?? 'CPMK';
         
@@ -178,23 +175,23 @@ class _MappingPageState extends State<MappingPage> {
           }
         }
 
-        // Mengunci parameter agar UUID yang dikirim terikat murni ke rpsId hasil generate database cloud gung
         final insertedCpmk = await _supabase.from('cpmk').insert({
           'rps_id': rpsId,
           'deskripsi': grup.deskripsiCpmk.trim(),
           'kode_cpmk': kodeCpmkTerverifikasi, 
-          'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString() 
+          'mata_kuliah_id': widget.rpsData['mata_kuliah_id'].toString(),
+          'cpl_id': grup.cplId 
         }).select('id').single();
 
         final String generatedCpmkId = insertedCpmk['id'].toString();
 
-        final List<Map<String, dynamic>> finalMapping = mappingData.map((item) {
-          return {
+        final List<Map<String, dynamic>> finalMapping = [
+          {
             'cpmk_id': generatedCpmkId,
-            'cpl_id': item['cpl_id'],
-            'bobot': item['bobot'], 
-          };
-        }).toList();
+            'cpl_id': grup.cplId,
+            'bobot': 0, 
+          }
+        ];
 
         await _supabase.from('mapping_cpl_cpmk').insert(finalMapping);
       }
@@ -239,13 +236,7 @@ class _MappingPageState extends State<MappingPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSectionTitle("1. Pilih CPMK Mata Kuliah Kurikulum", Icons.grid_view_rounded),
-                        const SizedBox(height: 12),
-                        _buildMasterCpmkChipsGrid(),
-                        
-                        const SizedBox(height: 30),
-                        
-                        _buildSectionTitle("2. Hubungkan ke CPL Prodi (Ceklist Cukup 1 Saja)", Icons.checklist_rtl_rounded),
+                        _buildSectionTitle("Pilih CPL Prodi & Hubungkan Standar CPMK Di Bawahnya", Icons.checklist_rtl_rounded),
                         const SizedBox(height: 12),
                         ...listCpl.map((cpl) => _buildCplCardTunggal(cpl)),
                         const SizedBox(height: 20),
@@ -269,113 +260,14 @@ class _MappingPageState extends State<MappingPage> {
     );
   }
 
-  Widget _buildMasterCpmkChipsGrid() {
-    if (listMasterCpmk.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
-        child: const Text("⚠️ Daftar master CPMK program studi belum tersedia untuk mata kuliah ini.", style: TextStyle(color: Colors.red, fontSize: 12)),
-      );
-    }
-
-    final validSelectedGroups = mappingGroups.where((grup) => 
-      grup.selectedMasterCpmkId != null && 
-      grup.selectedKodeCpmk != null && 
-      grup.selectedKodeCpmk != 'null'
-    ).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))],
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Pilih Kode CPMK (Dapat memilih lebih dari satu komponen):", style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 12),
-          
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: listMasterCpmk.map((item) {
-              final String itemId = item['id'].toString();
-              final bool isSelected = mappingGroups.any((element) => element.selectedMasterCpmkId == itemId);
-              
-              return InkWell(
-                onTap: () {
-                  setState(() {
-                    if (isSelected) {
-                      mappingGroups.removeWhere((element) => element.selectedMasterCpmkId == itemId);
-                    } else {
-                      mappingGroups.add(CpmkMappingGroup(
-                        selectedMasterCpmkId: itemId,
-                        selectedKodeCpmk: item['kode_cpmk']?.toString(),
-                        deskripsiCpmk: item['deskripsi']?.toString() ?? '',
-                      ));
-                    }
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? primaryColor : Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade300, width: 1.2),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                        color: isSelected ? Colors.white : Colors.grey,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        item['kode_cpmk'] ?? '-',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          
-          if (validSelectedGroups.isNotEmpty) ...[
-            const Divider(height: 30),
-            const Text("Deskripsi CPMK Terpilih:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: primaryColor)),
-            const SizedBox(height: 10),
-            ...validSelectedGroups.map((grup) => Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
-                  child: Text(
-                    "${grup.selectedKodeCpmk} : ${grup.deskripsiCpmk}",
-                    style: const TextStyle(fontSize: 12, height: 1.4, color: Colors.black87, fontWeight: FontWeight.w500),
-                  ),
-                )),
-          ]
-        ],
-      ),
-    );
-  }
-
   Widget _buildCplCardTunggal(Map<String, dynamic> cpl) {
     final String cplId = cpl['id'].toString();
     final bool isSelected = selectedCplIds.contains(cplId);
     final bool isStandar = standarCplIds.contains(cplId);
+    final cpmkPerCpl = listMasterCpmk.where((item) {
+      final String? itemCplId = item['cpl_id']?.toString() ?? item['id_cpl']?.toString();
+      return itemCplId == cplId;
+    }).toList();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
@@ -385,33 +277,112 @@ class _MappingPageState extends State<MappingPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade200, width: isSelected ? 1.5 : 1),
       ),
-      child: CheckboxListTile(
-        activeColor: primaryColor,
-        dense: true,
-        title: Row(
-          children: [
-            Text(cpl['kode_cpl'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            if (isStandar) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                child: const Text("STANDAR", style: TextStyle(fontSize: 8, color: Colors.blue, fontWeight: FontWeight.bold)),
-              )
-            ]
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            activeColor: primaryColor,
+            dense: true,
+            title: Row(
+              children: [
+                Text(cpl['kode_cpl'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                if (isStandar) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                    child: const Text("STANDAR", style: TextStyle(fontSize: 8, color: Colors.blue, fontWeight: FontWeight.bold)),
+                  )
+                ]
+              ],
+            ),
+            subtitle: Text(cpl['deskripsi'] ?? '-', style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+            value: isSelected,
+            onChanged: (val) {
+              setState(() {
+                if (val == true) {
+                  selectedCplIds.add(cplId);
+                } else {
+                  selectedCplIds.remove(cplId);
+                  mappingGroups.removeWhere((element) => element.cplId == cplId);
+                }
+              });
+            },
+          ),
+          
+          if (isSelected) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, thickness: 0.5),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Pilih Kode CPMK Kurikulum yang Berelasi:", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  if (cpmkPerCpl.isEmpty)
+                    const Text("ℹ️ Tidak ada master data CPMK yang dialokasikan khusus untuk CPL ini.", style: TextStyle(color: Colors.orange, fontSize: 11, fontStyle: FontStyle.italic))
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: cpmkPerCpl.map((item) {
+                        final String itemId = item['id'].toString();
+                        final bool isCpmkSelected = mappingGroups.any((element) => element.cplId == cplId && element.selectedMasterCpmkId == itemId);
+                        
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isCpmkSelected) {
+                                mappingGroups.removeWhere((element) => element.cplId == cplId && element.selectedMasterCpmkId == itemId);
+                              } else {
+                                mappingGroups.add(CpmkMappingGroup(
+                                  cplId: cplId,
+                                  selectedMasterCpmkId: itemId,
+                                  selectedKodeCpmk: item['kode_cpmk']?.toString(),
+                                  deskripsiCpmk: item['deskripsi']?.toString() ?? '',
+                                ));
+                              }
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isCpmkSelected ? primaryColor : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isCpmkSelected ? primaryColor : Colors.grey.shade300, width: 1.2),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isCpmkSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                  color: isCpmkSelected ? Colors.white : Colors.grey,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  item['kode_cpmk'] ?? '-',
+                                  style: TextStyle(
+                                    color: isCpmkSelected ? Colors.white : Colors.black87,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
           ],
-        ),
-        subtitle: Text(cpl['deskripsi'] ?? '-', style: const TextStyle(fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
-        value: isSelected,
-        onChanged: (val) {
-          setState(() {
-            if (val == true) {
-              selectedCplIds.add(cplId);
-            } else {
-              selectedCplIds.remove(cplId);
-            }
-          });
-        },
+        ],
       ),
     );
   }

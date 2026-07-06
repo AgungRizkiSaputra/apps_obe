@@ -535,7 +535,6 @@ class RpsService {
         });
       }
     } on AuthException catch (authE) {
-      // --- PENANGANAN FITUR DINAMIS: Memberikan pesan yang ramah dan jelas saat sidang skripsi ---
       if (authE.statusCode == '422' || authE.message.contains('already registered')) {
         throw 'Email sudah terdaftar di sistem! Silakan hapus user lama di menu Authentication Supabase terlebih dahulu.';
       }
@@ -550,7 +549,7 @@ class RpsService {
     try {
       final response = await supabase
           .from('cpmk') 
-          .select('*, mata_kuliah(nama_mk)')
+          .select('*, mata_kuliah(nama_mk), cpl(kode_cpl)')
           .filter('rps_id', 'is', null) 
           .order('kode_cpmk', ascending: true);
       return List<Map<String, dynamic>>.from(response);
@@ -560,13 +559,14 @@ class RpsService {
   }
 
   // --- SINKRONISASI TOTAL: PROSES INSERT DATA BARU KAPRODI JUGA MENEMBAK LANGSUNG KE TABEL CPMK ---
-  Future<void> addMasterCpmk(String kode, String deskripsi, String mkId) async {
+  Future<void> addMasterCpmk(String kode, String deskripsi, String mkId, {String? cplId}) async {
     try {
       await supabase.from('cpmk').insert({ 
         'kode_cpmk': kode,
         'deskripsi': deskripsi,
         'mata_kuliah_id': mkId,
-        'rps_id': null 
+        'rps_id': null,
+        'cpl_id': cplId 
       });
     } catch (e) {
       throw 'Gagal menambah master CPMK: $e';
@@ -574,19 +574,20 @@ class RpsService {
   }
 
   // --- PENAMBAHAN FITUR: UPDATE DATA MASTER CPMK ---
-  Future<void> updateMasterCpmk(String id, String kode, String deskripsi, String mkId) async {
+  Future<void> updateMasterCpmk(String id, String kode, String deskripsi, String mkId, {String? cplId}) async {
     try {
       await supabase.from('cpmk').update({
         'kode_cpmk': kode,
         'deskripsi': deskripsi,
         'mata_kuliah_id': mkId,
+        'cpl_id': cplId,
       }).eq('id', id);
     } catch (e) {
       throw 'Gagal memperbarui master CPMK: $e';
     }
   }
 
-  // --- PENAMBAHAN FITUR: HAPUS DATA MASTER CPMK ---
+  // Hapus Master CPMK
   Future<void> deleteMasterCpmk(String id) async {
     try {
       await supabase.from('cpmk').delete().eq('id', id);
