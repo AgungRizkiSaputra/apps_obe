@@ -1,4 +1,3 @@
-import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -552,17 +551,6 @@ class PdfHelper {
       print(s);
       rethrow;
     }
-  }
-
-  // --- LOGIKA HELPER DOWNLOAD IMAGE TANDA TANGAN (UTUH ANTI EROR COMPILE) ---
-  static Future<pw.ImageProvider?> _downloadImage(String url) async {
-    try {
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) return pw.MemoryImage(response.bodyBytes);
-    } catch (e) {
-      print("Error download image: $e");
-    }
-    return null;
   }
 
   // =========================================================================
