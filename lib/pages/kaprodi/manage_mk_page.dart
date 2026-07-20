@@ -98,7 +98,6 @@ class _ManageMkPageState extends State<ManageMkPage> {
     _namaController.text = mk['nama_mk']?.toString() ?? '';
     _sksController.text = mk['sks']?.toString() ?? '0';
     _semesterController.text = mk['semester']?.toString() ?? '0';
-    // Menampilkan kembali deskripsi mata kuliah lama yang ada di database gung
     _deskripsiController.text = mk['deskripsi']?.toString() ?? '';
 
     showDialog(
@@ -175,7 +174,6 @@ class _ManageMkPageState extends State<ManageMkPage> {
     );
   }
 
-  // Menambahkan opsional parameter maxLines gung agar field deskripsi bisa memanjang kebawah
   Widget _buildDialogField(
     TextEditingController controller, 
     String label, 

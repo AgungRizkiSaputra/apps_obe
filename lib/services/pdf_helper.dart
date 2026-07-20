@@ -19,7 +19,7 @@ class PdfHelper {
     pw.ImageProvider? logoCampustImage;
     try {
       logoCampustImage = await imageFromAssetBundle('assets/images/logoGLOBAL.webp');
-      print("SUCCESS: Logo Bina Sarana Global berhasil di-load ke PDF bundle gung!");
+      print("SUCCESS: Logo Bina Sarana Global berhasil di-load ke PDF bundle!");
     } catch (e) {
       print("ERROR: Gagal memuat logo asset via bundle: $e");
     }
@@ -165,7 +165,6 @@ class PdfHelper {
             pw.Center(child: pw.Text("RENCANA PEMBELAJARAN SEMESTER (RPS)", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
             pw.SizedBox(height: 8),
 
-            // --- TAMENG PENGUNCI LEBAR 1: Mengunci Lebar Grid Atas Agar Tidak Lewat Batas Kanan Lembar Cetak gung ---
             pw.SizedBox(
               width: pageWidth,
               child: pw.Table(
@@ -228,7 +227,6 @@ class PdfHelper {
                   pw.TableRow(
                     children: [
                       _buildCellGrid("Tanda Tangan\nSistem Terverifikasi"), 
-                      // --- REVISI FITUR AGUNG: Mengisi Data Unik RPS Berbasis Enkripsi String ke dalam QR Code gung ---
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.center,
                         children: [
@@ -259,7 +257,6 @@ class PdfHelper {
               ),
             ),
 
-            // --- TAMENG PENGUNCI LEBAR 2: Mengunci Lebar Detail Capaian Silabus gung ---
             pw.SizedBox(
               width: pageWidth,
               child: pw.Table(
@@ -554,7 +551,7 @@ class PdfHelper {
   }
 
   // =========================================================================
-  // --- KOREKSI TOTAL BARCODE BOX GUNG: Mengubah Placeholder Menjadi QR Code Asli Scannable ---
+  // --- KOREKSI TOTAL BARCODE BOX : Mengubah Placeholder Menjadi QR Code Asli Scannable ---
   // =========================================================================
   static pw.Widget _buildBarcodeBox(String data) {
     return pw.Container(
@@ -562,7 +559,7 @@ class PdfHelper {
       height: 32,
       margin: const pw.EdgeInsets.symmetric(vertical: 2),
       child: pw.BarcodeWidget(
-        barcode: pw.Barcode.qrCode(), // Memanggil konstruktor mesin QR asli gung!
+        barcode: pw.Barcode.qrCode(), 
         data: data,                   // Memasukkan teks verifikasi kurikulum prodi
         width: 32,
         height: 32,

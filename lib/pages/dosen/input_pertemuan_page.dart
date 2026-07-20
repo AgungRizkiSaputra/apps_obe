@@ -54,7 +54,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     super.dispose();
   }
 
-  // --- LOGIKA INIT DATA (MURNI TANPA MANIPULASI STRING - SESUAI SKEMA FISIK SUPABASE AGUNG) ---
   Future<void> _initData() async {
     try {
       final existingData = await rpsService.getRpsDetails(widget.rpsId);
@@ -76,7 +75,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
             initialWaktu = '150 Menit'; 
           }
 
-          // Membaca bersih dari kolom fisik 'sub_cpmk' dan 'pokok_pembahasan' asli database gung
           String dbSubCpmk = match['sub_cpmk'] ?? '';
           String dbPokok = match['pokok_pembahasan'] ?? 'Pengenalan Fundamental Jaringan dan Pemetaan Topologi';
 
@@ -95,7 +93,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
             'pokok_controller': TextEditingController(text: dbPokok),
             'selected_waktu': initialWaktu, 
             
-            // Variabel penanda nilai default awal gung untuk kontrol warna dinamis abu-abu/hitam
             'default_materi': dbSubCpmk,
             'default_pokok': dbPokok,
             'default_pengalaman': match['pengalaman_belajar'] ?? 'Mahasiswa menganalisis studi kasus nyata di laboratorium jaringan.',
@@ -112,7 +109,6 @@ class _InputPertemuanPageState extends State<InputPertemuanPage> {
     }
   }
 
-  // --- LOGIKA SIMPAN FINAL: PAYLOAD BERSIH MENEMBAK KOLOM SUB_CPMK & POKOK_PEMBAHASAN GUNG ---
   Future<void> _simpanSemua() async {
     setState(() => _isLoading = true);
     try {

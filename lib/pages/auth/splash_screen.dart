@@ -34,7 +34,6 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       }
     } else {
-      // --- PERBAIKAN SINKRONISASI JALUR AMAN AGUNG: Memastikan Role Akurat Pasca Refresh ---
       String? role = session.user.userMetadata?['role']?.toString();
 
       // Jika metadata lokal kosong akibat refresh browser Chrome, todong langsung ke database publik

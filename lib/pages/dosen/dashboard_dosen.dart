@@ -32,7 +32,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
     _refreshData();
   }
 
-  // --- KOREKSI SINKRONISASI TOTAL: Memaksa kueri lokal menarik join rps_detail agar tombol kirim aktif gung ---
   Future<void> _refreshData() async {
     final dataBaru = () async {
       final response = await rpsService.supabase
@@ -317,7 +316,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
     final String status = (rps['status'] ?? '').toString();
     final bool isSelected = _selectedRpsIds.contains(rpsId);
     
-    // --- AMAN UPDATE POIN UTAMA: Sekarang total pengisian dihitung akurat dari join data cloud gung ---
     final List rpsDetailList = rps['rps_detail'] as List? ?? [];
     final bool isPertemuanKosong = rpsDetailList.isEmpty;
 
@@ -344,7 +342,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
             const SizedBox(height: 10),
             _buildStatusChip(status),
             
-            // --- TAMPILAN BOKS PERINGATAN KUSTOM AGUNG PADA KARTU DRAFT/REVISI ---
             if (isPertemuanKosong && (status == 'draft' || status == 'revisi'))
               Container(
                 margin: const EdgeInsets.only(top: 12),
@@ -437,7 +434,6 @@ class _DashboardDosenState extends State<DashboardDosen> {
       );
     }
     if (['draft', 'revisi', 'revisi_selesai'].contains(status)) {
-      // --- SEKARANG TOMBOL NYALA AKTIF OTOMATIS JIKA DATA SUDAH TERISI DI SUPABASE GUNG ---
       return TextButton(
         key: ValueKey('kirim_$rpsId'),
         onPressed: isPertemuanKosong ? null : () => _handleKirimKeKaprodi(rpsId), 

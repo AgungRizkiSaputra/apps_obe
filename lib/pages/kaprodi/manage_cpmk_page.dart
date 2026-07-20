@@ -15,9 +15,9 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
   final _kodeController = TextEditingController();
   final _deskripsiController = TextEditingController();
   String? _selectedMkId;
-  String? _selectedCplId; // Parameter penampung baru gung
+  String? _selectedCplId; 
   List<Map<String, dynamic>> _listMataKuliah = [];
-  List<Map<String, dynamic>> _listCpl = []; // List data master CPL prodi gung
+  List<Map<String, dynamic>> _listCpl = []; 
 
   Future<List<Map<String, dynamic>>>? _cpmkFuture;
   bool _isSaving = false;
@@ -91,7 +91,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
     _kodeController.clear();
     _deskripsiController.clear();
     _selectedMkId = null;
-    _selectedCplId = null; // Reset default gung
+    _selectedCplId = null; // Reset default 
 
     showDialog(
       context: context,
@@ -123,7 +123,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 ),
                 const SizedBox(height: 15),
 
-                // --- DROPDOWN RELASI CPL BARU GUNG ---
                 DropdownButtonFormField<String>(
                   value: _selectedCplId,
                   hint: const Text("Pilih CPL Prodi Berelasi"),
@@ -189,7 +188,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                     'kode_cpmk': _kodeController.text.trim(),
                     'deskripsi': _deskripsiController.text.trim(),
                     'mata_kuliah_id': _selectedMkId!,
-                    'cpl_id': _selectedCplId!, // Berhasil ikat kaku gung
+                    'cpl_id': _selectedCplId!, 
                     'rps_id': null 
                   });
 
@@ -217,7 +216,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
     final editKodeController = TextEditingController(text: cpmk['kode_cpmk']);
     final editDeskripsiController = TextEditingController(text: cpmk['deskripsi']);
     String? editSelectedMkId = cpmk['mata_kuliah_id']?.toString();
-    String? editSelectedCplId = cpmk['cpl_id']?.toString(); // Tarik id relasinya gung
+    String? editSelectedCplId = cpmk['cpl_id']?.toString(); 
     final String cpmkId = cpmk['id'].toString();
 
     showDialog(
@@ -249,7 +248,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 ),
                 const SizedBox(height: 15),
 
-                // --- DROPDOWN EDIT RELASI CPL GUNG ---
                 DropdownButtonFormField<String>(
                   value: editSelectedCplId,
                   hint: const Text("Pilih CPL Prodi Berelasi"),
@@ -314,7 +312,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                     editKodeController.text.trim(), 
                     editDeskripsiController.text.trim(), 
                     editSelectedMkId!,
-                    cplId: editSelectedCplId, // Update aman gung
+                    cplId: editSelectedCplId, 
                   );
                   if (mounted) {
                     Navigator.pop(context);
@@ -413,7 +411,7 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                 if (filteredList.isEmpty) {
                   return const Center(
                     child: Text(
-                      "Tidak ada data Master CPMK untuk mata kuliah ini gung.",
+                      "Tidak ada data Master CPMK untuk mata kuliah ini.",
                       style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                     ),
                   );
@@ -440,7 +438,6 @@ class _ManageCpmkPageState extends State<ManageCpmkPage> {
                           backgroundColor: primaryColor.withOpacity(0.1),
                           child: const Icon(Icons.bookmark, color: primaryColor),
                         ),
-                        // --- MENAMPILKAN KODE CPL PENGIKAT DI LIST UTAMA AGAR SINKRON GUNG ---
                         title: Text("${cpmk['kode_cpmk'] ?? '-'} [$cplCode] • ${cpmk['mata_kuliah']?['nama_mk'] ?? '-'}", style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 6),
